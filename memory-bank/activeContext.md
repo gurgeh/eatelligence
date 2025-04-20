@@ -47,6 +47,16 @@
     *   Cleared and re-imported data into `food_items` from `Recept - Ingredienser.csv` to populate `gl` values.
     *   Calculated values based on `log.multiplier` and rounded to integers.
     *   Displayed values using styled Tailwind CSS badges (colored backgrounds, padding, rounded corners) for visual grouping, replacing the initial text-based format.
+*   Implemented daily summary dividers in the recent logs list (`src/routes/+page.svelte`).
+    *   Created `processLogsForDisplay` function to group logs by date and calculate daily totals.
+    *   Updated the template to iterate over a combined `displayItems` array, showing summary headers and log items.
+    *   Refined timestamp display (`formatTimestampForDisplay`) to show only HH:mm for log items.
+    *   Adjusted styling for summary headers and log item timestamps.
+*   Implemented pagination for recent logs (`src/routes/+page.svelte`).
+    *   Modified `fetchRecentLogs` to use Supabase `.range()` instead of `.limit()`.
+    *   Added state variables (`logsPerPage`, `currentPage`, `loadingMore`, `canLoadMore`) to manage pagination.
+    *   Added a "Load More" button that fetches the next page of logs and appends them to the list.
+*   Confirmed existence of index `idx_food_log_logged_at` on `food_log.logged_at` column via Supabase MCP SQL query, ensuring efficient ordering.
 
 **Next Immediate Step:**
-*   Implement a simple overview/summary of the last few days' total nutrition.
+*   Implement a simple overview/summary of the last few days' total nutrition (e.g., displayed above the log section).

@@ -15,12 +15,13 @@
 - [x] Neater log format (Reordered to Date-Name-Multiplier, removed line break, added Today/Yesterday format)
 - [x] Max width for desktop (Added `max-w-5xl` to main container)
 - [x] Compressed nutrition data per meal (Added summary row below each log entry with calculated values, fixed missing GL column, re-imported data, styled with colored badges)
-- [ ] Simple overview of last days nutrition
-- [ ] Eternal scroll for recent logs
+- [x] Add daily summary dividers to log (Grouped logs by date, calculated daily totals, updated template)
+- [x] Implement "Load More" button for log pagination (Used Supabase range query, added button, updated fetch logic)
+- [x] Confirm `logged_at` index exists (Verified index `idx_food_log_logged_at` using Supabase MCP)
 - [ ] Add some sort of authentication (and/or RLS policies)
 - [ ] Try putting online (GCP fendrich.se subdomain)
-- [ ] Make sure mobile works (maybe PWA)
-- [ ] Can it be packaged as an android app?
+- [ ] Make sure mobile works 
+- [ ] Can it be packaged as an android app? (maybe PWA)
 - [ ] Upload the last meal nutrition data to Supabase
 - [ ] Create view for displaying and entering new food items
 - [ ] LLM integration for searching/guessing nutrition data for new meals

@@ -32,6 +32,10 @@
 	let searchTerm = '';
 	let searchResults: FoodItem[] = [];
 	let recentLogs: FoodLog[] = [];
+	let displayItems: (
+		| { type: 'log'; data: FoodLog }
+		| { type: 'summary'; date: string; totals: Partial<FoodItem> }
+	)[] = []; // Combined array for display
 	let allFoodItems: FoodItem[] = []; // Store all items for Fuse.js
 	let fuse: Fuse<FoodItem> | null = null; // Fuse instance
 
@@ -40,6 +44,10 @@
 	let logError: string | null = null;
 	let foodItemError: string | null = null;
 	let isLogging = false; // To prevent double clicks
+	let loadingMore = false; // State for loading more logs
+	let canLoadMore = true; // Assume we can load more initially
+	const logsPerPage = 50; // Number of logs to fetch per page
+	let currentPage = 0; // Current page index for pagination
 
 	// --- Inline Editing State ---
 	let editingLogId: number | null = null;
@@ -48,47 +56,38 @@
 
 	// --- Helper Functions ---
 
-	// Timestamp formatter with "Today" / "Yesterday" logic
+	// Timestamp formatter - Now only shows HH:mm
 	function formatTimestampForDisplay(isoString: string): string {
-		if (!isoString) return 'Invalid Date';
+		if (!isoString) return 'Invalid Time';
 		try {
 			const date = new Date(isoString);
-			const now = new Date();
-			const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-			const yesterday = new Date(today);
-			yesterday.setDate(today.getDate() - 1);
-
-			// Get HH:mm part
+			// Get HH:mm part using Swedish locale for 24h format
 			const timeFormat: Intl.DateTimeFormatOptions = {
 				hour: 'numeric',
 				minute: 'numeric',
 				hour12: false
 			};
-			const timeString = date.toLocaleTimeString('sv-SE', timeFormat);
-
-			// Compare dates (ignoring time)
-			const inputDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-			if (inputDateOnly.getTime() === today.getTime()) {
-				return `Today ${timeString}`;
-			} else if (inputDateOnly.getTime() === yesterday.getTime()) {
-				return `Yesterday ${timeString}`;
-			} else {
-				// Fallback to original format for older dates
-				return date.toLocaleString('sv-SE', {
-					month: 'short',
-					day: 'numeric',
-					hour: 'numeric',
-					minute: 'numeric',
-					hour12: false
-				});
-			}
+			return date.toLocaleTimeString('sv-SE', timeFormat);
 		} catch (e) {
-			console.error('Error formatting date:', e);
-			return 'Invalid Date';
+			console.error('Error formatting time:', e);
+			return 'Invalid Time';
 		}
 	}
 
+	// Helper to get YYYY-MM-DD from ISO string (respecting local timezone)
+	function getLocalDateString(isoString: string): string {
+		if (!isoString) return 'Invalid Date';
+		try {
+			const date = new Date(isoString);
+			const year = date.getFullYear();
+			const month = (date.getMonth() + 1).toString().padStart(2, '0');
+			const day = date.getDate().toString().padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		} catch (e) {
+			console.error('Error getting local date string:', e);
+			return 'Invalid Date';
+		}
+	}
 
 	// Convert ISO string to Swedish local format (YYYY-MM-DD HH:mm)
 	function isoToSwedishLocal(isoString: string): string {
@@ -221,9 +220,21 @@
 
 	// --- Data Fetching ---
 
-	async function fetchRecentLogs() {
-		loadingLogs = true;
+	async function fetchRecentLogs(loadMore = false) {
+		if (loadMore) {
+			loadingMore = true;
+			currentPage++; // Increment page for the next fetch
+		} else {
+			loadingLogs = true;
+			currentPage = 0; // Reset to first page
+			recentLogs = []; // Clear existing logs for a fresh load
+			displayItems = []; // Clear display items too
+		}
 		logError = null;
+
+		const from = currentPage * logsPerPage;
+		const to = from + logsPerPage - 1;
+
 		try {
 			const { data, error } = await supabase
 				.from('food_log')
@@ -250,12 +261,11 @@
         `
 				)
 				.order('logged_at', { ascending: false })
-				.limit(20);
+				.range(from, to); // Use range for pagination
 
 			if (error) throw error;
 
-			// Safely map the data, handling potential null for food_items
-			recentLogs = data
+			const newLogs = data
 				? data.map((log) => {
 						const relatedFoodItem = log.food_items as any; // Cast to any to bypass TS check
 						return {
@@ -282,14 +292,102 @@
 								: null
 						};
 					})
-				: []; // Handle case where data itself might be null
+				: [];
+
+			// Append or replace logs based on loadMore flag
+			if (loadMore) {
+				recentLogs = [...recentLogs, ...newLogs];
+			} else {
+				recentLogs = newLogs;
+			}
+
+			// Determine if more logs can be loaded
+			canLoadMore = newLogs.length === logsPerPage;
+
 		} catch (err: any) {
 			console.error('Error fetching recent logs:', err);
 			logError = err.message || 'Failed to fetch recent logs.';
+			if (loadMore) currentPage--; // Decrement page if load more failed
 		} finally {
 			loadingLogs = false;
+			loadingMore = false;
+			// Process logs after fetching/appending
+			processLogsForDisplay();
 		}
 	}
+
+	// --- Log Processing for Display ---
+	function processLogsForDisplay() {
+		// Define keys for nutrients we want to sum
+		const nutrientKeys = [
+			'calories',
+			'protein',
+			'fat',
+			'carbs',
+			'fibers',
+			'sugar',
+			'mufa',
+			'pufa',
+			'sfa',
+			'gl'
+		] as const; // Use 'as const' for stricter typing of keys
+
+		// Define a type for the totals accumulator, mapping only nutrient keys to numbers
+		type DailyTotals = { [K in typeof nutrientKeys[number]]?: number };
+
+		const groupedLogs: {
+			[date: string]: { logs: FoodLog[]; totals: DailyTotals };
+		} = {};
+
+	// Group logs by date and calculate totals
+	for (const log of recentLogs) {
+		const dateStr = getLocalDateString(log.logged_at);
+		if (!groupedLogs[dateStr]) {
+				// Initialize with logs array and an empty totals object
+				groupedLogs[dateStr] = { logs: [], totals: {} };
+			}
+			groupedLogs[dateStr].logs.push(log);
+
+			// Add to daily totals, checking if food_items exists and initialize if needed
+			if (log.food_items) {
+				nutrientKeys.forEach((key) => {
+					const value = log.food_items?.[key]; // Get the value (could be number | null)
+					if (typeof value === 'number') { // Only add if it's a valid number
+						// Initialize the specific key in totals if it doesn't exist yet
+						if (groupedLogs[dateStr].totals[key] === undefined) {
+							groupedLogs[dateStr].totals[key] = 0;
+						}
+						// Now TypeScript knows totals[key] is a number
+						groupedLogs[dateStr].totals[key]! += value * log.multiplier;
+					}
+				});
+			}
+		}
+
+		// Create the final display array
+		const newDisplayItems: typeof displayItems = [];
+		// Sort dates descending (newest first)
+		const sortedDates = Object.keys(groupedLogs).sort((a, b) => b.localeCompare(a));
+
+		for (const dateStr of sortedDates) {
+			// Add summary row first
+			newDisplayItems.push({
+				type: 'summary',
+				date: dateStr,
+				// Round totals before adding to displayItems
+				totals: Object.fromEntries(
+					nutrientKeys.map(key => [key, Math.round(groupedLogs[dateStr].totals[key] ?? 0)]) // Use ?? 0 for rounding potentially undefined keys
+				) as Partial<FoodItem> // Cast to Partial<FoodItem> as expected by displayItems
+			});
+			// Add individual logs for that day (order maintained from recentLogs)
+			for (const log of groupedLogs[dateStr].logs) {
+				newDisplayItems.push({ type: 'log', data: log });
+			}
+		}
+
+		displayItems = newDisplayItems;
+	}
+
 
 	async function fetchAllFoodItems() {
 		loadingFoodItems = true;
@@ -330,10 +428,17 @@
 	}
 
 	// Fetch initial data on mount
-	onMount(() => {
-		fetchRecentLogs();
-		fetchAllFoodItems();
+	onMount(async () => {
+		// Fetch logs first, then process
+		await fetchRecentLogs(); // Already calls processLogsForDisplay on success
+		await fetchAllFoodItems();
 	});
+
+	// Re-process logs if recentLogs array changes (e.g., after add/delete/update)
+	// Ensure loadingLogs is false to prevent processing incomplete data during fetch
+	$: if (recentLogs && !loadingLogs) {
+		processLogsForDisplay();
+	}
 
 	// --- Search Logic ---
 
@@ -490,13 +595,46 @@
 			<p>Loading recent logs...</p>
 		{:else if logError}
 			<p class="text-red-600">Error: {logError}</p>
-		{:else if recentLogs.length > 0}
+		{:else if displayItems.length > 0}
 			<ul class="space-y-2">
-				{#each recentLogs as log (log.id)}
-					<li class="p-2 border rounded-md bg-gray-50"> <!-- Removed flex justify-between items-center to allow stacking -->
-						<div class="flex justify-between items-center min-h-[2.5rem]"> <!-- Main log info row -->
-							<div class="flex items-center space-x-3 flex-grow mr-2 overflow-hidden">
-								<div class="text-sm text-gray-600 w-28 flex-shrink-0">
+				{#each displayItems as item (item.type === 'log' ? item.data.id : item.date)}
+					{#if item.type === 'summary'}
+						<!-- Daily Summary Divider -->
+						<li class="pt-4 pb-1 border-b-2 border-gray-300">
+							<div class="flex justify-between items-baseline mb-1">
+								<h3 class="text-lg font-semibold text-gray-700">{item.date}</h3>
+								<!-- Removed "Daily Totals" span -->
+							</div>
+							<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+								<!-- Calories -->
+								<span class="bg-blue-200 text-blue-900 px-1.5 py-0.5 rounded-md font-medium">
+									{item.totals.calories ?? 0} Cal
+								</span>
+								<!-- Protein, Fat, Carbs -->
+								<span class="bg-green-200 text-green-900 px-1.5 py-0.5 rounded-md font-medium">
+									{item.totals.protein ?? 0}, {item.totals.fat ?? 0}, {item.totals.carbs ?? 0} <span class="text-green-700 text-[0.65rem]">PFC</span>
+								</span>
+								<!-- Fibers, Sugar -->
+								<span class="bg-yellow-200 text-yellow-900 px-1.5 py-0.5 rounded-md font-medium">
+									{item.totals.fibers ?? 0}, {item.totals.sugar ?? 0} <span class="text-yellow-700 text-[0.65rem]">FiS</span>
+								</span>
+								<!-- MUFA, PUFA, SFA -->
+								<span class="bg-orange-200 text-orange-900 px-1.5 py-0.5 rounded-md font-medium">
+									{item.totals.mufa ?? 0}, {item.totals.pufa ?? 0}, {item.totals.sfa ?? 0} <span class="text-orange-700 text-[0.65rem]">MPS</span>
+								</span>
+								<!-- GL -->
+								<span class="bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded-md font-medium">
+									{item.totals.gl ?? 0} GL
+								</span>
+							</div>
+						</li>
+					{:else if item.type === 'log'}
+						{@const log = item.data} <!-- Alias item.data to log for readability -->
+						<!-- Individual Log Item -->
+						<li class="p-2 border rounded-md bg-gray-50">
+							<div class="flex justify-between items-center min-h-[2.5rem]"> <!-- Main log info row -->
+								<div class="flex items-center space-x-3 flex-grow mr-2 overflow-hidden">
+									<div class="text-sm text-gray-600 w-16 flex-shrink-0"> <!-- Reduced width from w-28 -->
 									{#if editingLogId === log.id && editingProperty === 'timestamp'}
 									<input
 										type="text"
@@ -599,9 +737,27 @@
 							</span>
 						</div>
 						{/if}
-					</li>
+						</li>
+					{/if}
 				{/each}
 			</ul>
+			<!-- Load More Button -->
+			{#if !loadingLogs && canLoadMore}
+				<div class="mt-6 text-center">
+					<button
+						type="button"
+						class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+						on:click={() => fetchRecentLogs(true)}
+						disabled={loadingMore}
+					>
+						{#if loadingMore}
+							Loading...
+						{:else}
+							Load More
+						{/if}
+					</button>
+				</div>
+			{/if}
 		{:else}
 			<p>No food logged yet.</p>
 		{/if}
