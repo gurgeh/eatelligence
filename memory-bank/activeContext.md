@@ -41,6 +41,12 @@
     *   Updated `formatTimestampForDisplay` to show "Today HH:mm" / "Yesterday HH:mm" for recent dates.
     *   Resolved Svelte parsing errors by removing internal comments within the list item structure.
 *   Added `max-w-5xl` to the main container `div` in `src/routes/+page.svelte` to limit width on desktop.
+*   Implemented nutritional summary display below each log entry in `src/routes/+page.svelte`:
+    *   Fetched all required nutritional fields (`calories`, `protein`, `fat`, `carbs`, `fibers`, `sugar`, `mufa`, `pufa`, `sfa`, `gl`) from `food_items` table join.
+    *   Added a migration using Supabase MCP to add the missing `gl` column to `food_items`.
+    *   Cleared and re-imported data into `food_items` from `Recept - Ingredienser.csv` to populate `gl` values.
+    *   Calculated values based on `log.multiplier` and rounded to integers.
+    *   Displayed values using styled Tailwind CSS badges (colored backgrounds, padding, rounded corners) for visual grouping, replacing the initial text-based format.
 
 **Next Immediate Step:**
-*   Implement logic to calculate and display compressed nutrition data per meal (based on logged items).
+*   Implement a simple overview/summary of the last few days' total nutrition.

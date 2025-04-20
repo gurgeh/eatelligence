@@ -8,7 +8,17 @@
 	type FoodItem = {
 		id: number;
 		name: string;
-		// Add other fields from food_items if needed later
+		calories?: number | null;
+		protein?: number | null;
+		fat?: number | null;
+		carbs?: number | null;
+		fibers?: number | null;
+		sugar?: number | null;
+		mufa?: number | null;
+		pufa?: number | null;
+		sfa?: number | null;
+		gl?: number | null;
+		comment?: string | null; // Keep comment in case needed later, though not displayed in summary
 	};
 
 	type FoodLog = {
@@ -225,7 +235,17 @@
           food_item_id,
           food_items (
             id,
-            name
+            name,
+            calories,
+            protein,
+            fat,
+            carbs,
+            fibers,
+            sugar,
+            mufa,
+            pufa,
+            sfa,
+            gl
           )
         `
 				)
@@ -243,8 +263,23 @@
 							logged_at: log.logged_at,
 							multiplier: log.multiplier,
 							food_item_id: log.food_item_id,
-							// Access properties after casting
-							food_items: relatedFoodItem ? { id: relatedFoodItem.id, name: relatedFoodItem.name } : null
+							// Map all fetched fields
+							food_items: relatedFoodItem
+								? {
+										id: relatedFoodItem.id,
+										name: relatedFoodItem.name,
+										calories: relatedFoodItem.calories,
+										protein: relatedFoodItem.protein,
+										fat: relatedFoodItem.fat,
+										carbs: relatedFoodItem.carbs,
+										fibers: relatedFoodItem.fibers,
+										sugar: relatedFoodItem.sugar,
+										mufa: relatedFoodItem.mufa,
+										pufa: relatedFoodItem.pufa,
+										sfa: relatedFoodItem.sfa,
+										gl: relatedFoodItem.gl
+									}
+								: null
 						};
 					})
 				: []; // Handle case where data itself might be null
@@ -458,10 +493,11 @@
 		{:else if recentLogs.length > 0}
 			<ul class="space-y-2">
 				{#each recentLogs as log (log.id)}
-					<li class="flex justify-between items-center p-2 border rounded-md bg-gray-50 min-h-[3rem]">
-						<div class="flex items-center space-x-3 flex-grow mr-2 overflow-hidden">
-							<div class="text-sm text-gray-600 w-28 flex-shrink-0">
-								{#if editingLogId === log.id && editingProperty === 'timestamp'}
+					<li class="p-2 border rounded-md bg-gray-50"> <!-- Removed flex justify-between items-center to allow stacking -->
+						<div class="flex justify-between items-center min-h-[2.5rem]"> <!-- Main log info row -->
+							<div class="flex items-center space-x-3 flex-grow mr-2 overflow-hidden">
+								<div class="text-sm text-gray-600 w-28 flex-shrink-0">
+									{#if editingLogId === log.id && editingProperty === 'timestamp'}
 									<input
 										type="text"
 										placeholder="YYYY-MM-DD HH:mm"
@@ -536,6 +572,33 @@
 								</svg>
 							</button>
 						</div>
+						</div> <!-- End main log info row -->
+
+						<!-- Nutritional Summary Row - Styled Badges -->
+						{#if log.food_items}
+						<div class="pl-1 pt-1 mt-1 border-t border-gray-200 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+							<!-- Calories -->
+							<span class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md">
+								{Math.round((log.food_items.calories ?? 0) * log.multiplier)} Cal
+							</span>
+							<!-- Protein, Fat, Carbs -->
+							<span class="bg-green-100 text-green-800 px-1.5 py-0.5 rounded-md">
+								{Math.round((log.food_items.protein ?? 0) * log.multiplier)}, {Math.round((log.food_items.fat ?? 0) * log.multiplier)}, {Math.round((log.food_items.carbs ?? 0) * log.multiplier)} <span class="text-green-600 text-[0.65rem]">PFC</span>
+							</span>
+							<!-- Fibers, Sugar -->
+							<span class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded-md">
+								{Math.round((log.food_items.fibers ?? 0) * log.multiplier)}, {Math.round((log.food_items.sugar ?? 0) * log.multiplier)} <span class="text-yellow-600 text-[0.65rem]">FiS</span>
+							</span>
+							<!-- MUFA, PUFA, SFA -->
+							<span class="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-md">
+								{Math.round((log.food_items.mufa ?? 0) * log.multiplier)}, {Math.round((log.food_items.pufa ?? 0) * log.multiplier)}, {Math.round((log.food_items.sfa ?? 0) * log.multiplier)} <span class="text-orange-600 text-[0.65rem]">MPS</span>
+							</span>
+							<!-- GL -->
+							<span class="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded-md">
+								{Math.round((log.food_items.gl ?? 0) * log.multiplier)} GL
+							</span>
+						</div>
+						{/if}
 					</li>
 				{/each}
 			</ul>

@@ -14,7 +14,7 @@
 - [x] Fix timestamp display (Changed input to `text`, added helpers for `YYYY-MM-DD HH:mm` local format, updated display format to `sv-SE` 24h)
 - [x] Neater log format (Reordered to Date-Name-Multiplier, removed line break, added Today/Yesterday format)
 - [x] Max width for desktop (Added `max-w-5xl` to main container)
-- [ ] Compressed nutrition data per meal
+- [x] Compressed nutrition data per meal (Added summary row below each log entry with calculated values, fixed missing GL column, re-imported data, styled with colored badges)
 - [ ] Simple overview of last days nutrition
 - [ ] Eternal scroll for recent logs
 - [ ] Add some sort of authentication (and/or RLS policies)
