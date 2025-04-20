@@ -1,0 +1,23 @@
+- [x] Pick frontend frameworks (SvelteKit + Tailwind CSS)
+- [x] Initialize dev environment (SvelteKit, TS, Tailwind, Prettier, ESLint, Playwright, adapter-static SPA)
+- [x] Connect to Supabase (Installed client, set up .env, created client instance, tested connection)
+- [x] Supabase MCP
+- [x] Create `food_items` table in Supabase (incl. comment column)
+- [x] Create `food_log` table in Supabase (simplified, RLS disabled)
+- [x] Enter existing nutrition data from CSV into `food_items`
+- [x] Create first view for logging meals (`+page.svelte`: Search, fuzzy match, log selection, recent logs display. RLS disabled on `food_items` as no auth yet.)
+- [x] Github project (Created repo `gurgeh/eatelligence` and pushed initial commit)
+- [ ] Fix page.svelte li cannot have role="button"
+- [ ] Delete logged meals
+- [ ] Choose multiplier and date for logged meals
+- [ ] Pick food item from last logged meals
+- [ ] Fix timestamp display
+- [ ] Add some sort of authentication (and/or RLS policies)
+- [ ] Try putting online (GCP fendrich.se subdomain)
+- [ ] Make sure mobile works (maybe PWA)
+- [ ] Can it be packaged as an android app?
+- [ ] Create view for entering new food items
+- [ ] Upload the meal nutrition data to Supabase
+- [ ] LLM integration for searching/guessing nutrition data for new meals
+- [ ] Simple overview of last days nutrition
+- [ ] Maybe try photo recognition for new meals
