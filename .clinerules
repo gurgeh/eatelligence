@@ -59,7 +59,7 @@ flowchart TD
 Memory Bank updates occur when:
 1. Todos are completed
 2. New insights are gained
-3. After implementing significant changes
+3. After implementing significant changes (If these changes can be tested in the browser by the user, I will first ask the user to test them)
 4. When user requests with **update memory bank** (MUST review ALL files)
 5. When context needs clarification
 
