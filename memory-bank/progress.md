@@ -12,14 +12,16 @@
 - [x] Choose multiplier and date for logged meals (Implemented inline editing in recent logs)
 - [x] Pick food item from last logged meals (Added copy button and delete confirmation to recent logs)
 - [x] Fix timestamp display (Changed input to `text`, added helpers for `YYYY-MM-DD HH:mm` local format, updated display format to `sv-SE` 24h)
-- [ ] Neater log format
-- [ ] Max width for desktop
-- [ ] Create view for entering new food items
+- [x] Neater log format (Reordered to Date-Name-Multiplier, removed line break, added Today/Yesterday format)
+- [x] Max width for desktop (Added `max-w-5xl` to main container)
+- [ ] Compressed nutrition data per meal
+- [ ] Simple overview of last days nutrition
+- [ ] Eternal scroll for recent logs
 - [ ] Add some sort of authentication (and/or RLS policies)
 - [ ] Try putting online (GCP fendrich.se subdomain)
 - [ ] Make sure mobile works (maybe PWA)
 - [ ] Can it be packaged as an android app?
-- [ ] Upload the meal nutrition data to Supabase
+- [ ] Upload the last meal nutrition data to Supabase
+- [ ] Create view for displaying and entering new food items
 - [ ] LLM integration for searching/guessing nutrition data for new meals
-- [ ] Simple overview of last days nutrition
 - [ ] Maybe try photo recognition for new meals

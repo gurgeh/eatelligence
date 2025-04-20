@@ -35,6 +35,12 @@
     *   Created a `copyLog` function that inserts a new log entry using the selected log's `food_item_id` and `multiplier`, but sets `logged_at` to the current time.
     *   The recent logs list is refreshed automatically after copying.
 *   Added a confirmation dialog (`window.confirm`) to the delete button in the recent logs list (`src/routes/+page.svelte`) to prevent accidental deletions.
+*   Updated recent log display format in `src/routes/+page.svelte`:
+    *   Reordered elements to: Date - Name - Multiplier | Buttons.
+    *   Removed line break after name.
+    *   Updated `formatTimestampForDisplay` to show "Today HH:mm" / "Yesterday HH:mm" for recent dates.
+    *   Resolved Svelte parsing errors by removing internal comments within the list item structure.
+*   Added `max-w-5xl` to the main container `div` in `src/routes/+page.svelte` to limit width on desktop.
 
 **Next Immediate Step:**
-*   Add some sort of authentication (and/or RLS policies).
+*   Implement logic to calculate and display compressed nutrition data per meal (based on logged items).

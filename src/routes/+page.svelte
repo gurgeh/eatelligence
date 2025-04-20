@@ -38,24 +38,47 @@
 
 	// --- Helper Functions ---
 
-	// Simple timestamp formatter (customize as needed)
+	// Timestamp formatter with "Today" / "Yesterday" logic
 	function formatTimestampForDisplay(isoString: string): string {
 		if (!isoString) return 'Invalid Date';
 		try {
 			const date = new Date(isoString);
-			// Format for Swedish locale, 24-hour clock: e.g., "20 apr. 11:40"
-			return date.toLocaleString('sv-SE', {
-				month: 'short',
-				day: 'numeric',
-				hour: 'numeric', // 24-hour clock is default for sv-SE
+			const now = new Date();
+			const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+			const yesterday = new Date(today);
+			yesterday.setDate(today.getDate() - 1);
+
+			// Get HH:mm part
+			const timeFormat: Intl.DateTimeFormatOptions = {
+				hour: 'numeric',
 				minute: 'numeric',
-				hour12: false // Explicitly set to false
-			});
+				hour12: false
+			};
+			const timeString = date.toLocaleTimeString('sv-SE', timeFormat);
+
+			// Compare dates (ignoring time)
+			const inputDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+			if (inputDateOnly.getTime() === today.getTime()) {
+				return `Today ${timeString}`;
+			} else if (inputDateOnly.getTime() === yesterday.getTime()) {
+				return `Yesterday ${timeString}`;
+			} else {
+				// Fallback to original format for older dates
+				return date.toLocaleString('sv-SE', {
+					month: 'short',
+					day: 'numeric',
+					hour: 'numeric',
+					minute: 'numeric',
+					hour12: false
+				});
+			}
 		} catch (e) {
 			console.error('Error formatting date:', e);
 			return 'Invalid Date';
 		}
 	}
+
 
 	// Convert ISO string to Swedish local format (YYYY-MM-DD HH:mm)
 	function isoToSwedishLocal(isoString: string): string {
@@ -382,7 +405,7 @@
 	}
 </script>
 
-<div class="container mx-auto p-4">
+<div class="container mx-auto p-4 max-w-5xl">
 	<h1 class="text-2xl font-bold mb-4">Log Food</h1>
 
 	<div class="mb-6 relative">
@@ -435,10 +458,38 @@
 		{:else if recentLogs.length > 0}
 			<ul class="space-y-2">
 				{#each recentLogs as log (log.id)}
-					<li class="flex justify-between items-center p-2 border rounded-md bg-gray-50 min-h-[4rem]">
-						<div class="flex-grow mr-2">
-							<span class="font-medium">{log.food_items?.name ?? 'Unknown Item'}</span>
-							<div class="text-sm text-gray-600 ml-2 mt-1">
+					<li class="flex justify-between items-center p-2 border rounded-md bg-gray-50 min-h-[3rem]">
+						<div class="flex items-center space-x-3 flex-grow mr-2 overflow-hidden">
+							<div class="text-sm text-gray-600 w-28 flex-shrink-0">
+								{#if editingLogId === log.id && editingProperty === 'timestamp'}
+									<input
+										type="text"
+										placeholder="YYYY-MM-DD HH:mm"
+										bind:value={editingValue}
+										on:keydown={handleInputKeydown}
+										on:blur={saveLogUpdate}
+										class="px-1 py-0 border border-blue-300 rounded text-sm w-full"
+										aria-label="Edit timestamp (YYYY-MM-DD HH:mm)"
+									/>
+								{:else}
+									<span
+										class="cursor-pointer hover:bg-gray-200 px-1 rounded block"
+										on:click={() => startEditing(log, 'timestamp')}
+										role="button"
+										tabindex="0"
+										on:keydown={(e) => handleSpanKeydown(e, log, 'timestamp')}
+										title="Click to edit timestamp"
+									>
+										{formatTimestampForDisplay(log.logged_at)}
+									</span>
+								{/if}
+							</div>
+
+							<span class="font-medium truncate flex-shrink min-w-0" title={log.food_items?.name ?? 'Unknown Item'}>
+								{log.food_items?.name ?? 'Unknown Item'}
+							</span>
+
+							<div class="text-sm text-gray-600 flex-shrink-0">
 								{#if editingLogId === log.id && editingProperty === 'multiplier'}
 									<input
 										type="number"
@@ -461,52 +512,30 @@
 										x{log.multiplier}
 									</span>
 								{/if}
-								<span class="mx-1">-</span>
-								{#if editingLogId === log.id && editingProperty === 'timestamp'}
-									<input
-										type="text"
-										placeholder="YYYY-MM-DD HH:mm"
-										bind:value={editingValue}
-										on:keydown={handleInputKeydown}
-										on:blur={saveLogUpdate}
-										class="px-1 py-0 border border-blue-300 rounded text-sm w-36"
-										aria-label="Edit timestamp (YYYY-MM-DD HH:mm)"
-									/>
-								{:else}
-									<span
-										class="cursor-pointer hover:bg-gray-200 px-1 rounded"
-										on:click={() => startEditing(log, 'timestamp')}
-										role="button"
-										tabindex="0"
-										on:keydown={(e) => handleSpanKeydown(e, log, 'timestamp')}
-										title="Click to edit timestamp"
-									>
-										{formatTimestampForDisplay(log.logged_at)}
-									</span>
-								{/if}
 							</div>
 						</div>
-						<!-- Copy Button -->
-						<button
-							type="button"
-							on:click={() => copyLog(log)}
-							class="ml-2 p-1 text-blue-700 bg-blue-100 rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-							aria-label={`Copy log for ${log.food_items?.name ?? 'Unknown Item'} as new entry`}
-							title="Copy as new entry (now)"
-						>
-							📋 <!-- Clipboard Emoji -->
-						</button>
-						<!-- Delete Button -->
-						<button
-							type="button"
-							on:click={() => deleteLog(log.id, log.food_items?.name)}
-							class="ml-2 p-1 text-red-700 bg-red-100 rounded hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-							aria-label={`Delete log for ${log.food_items?.name ?? 'Unknown Item'}`}
-						>
-							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-							</svg>
-						</button>
+
+						<div class="flex items-center flex-shrink-0 space-x-1">
+							<button
+								type="button"
+								on:click={() => copyLog(log)}
+								class="p-1 text-blue-700 bg-blue-100 rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
+								aria-label={`Copy log for ${log.food_items?.name ?? 'Unknown Item'} as new entry`}
+								title="Copy as new entry (now)"
+							>
+								📋
+							</button>
+							<button
+								type="button"
+								on:click={() => deleteLog(log.id, log.food_items?.name)}
+								class="p-1 text-red-700 bg-red-100 rounded hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
+								aria-label={`Delete log for ${log.food_items?.name ?? 'Unknown Item'}`}
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+								</svg>
+							</button>
+						</div>
 					</li>
 				{/each}
 			</ul>
