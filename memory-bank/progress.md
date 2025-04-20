@@ -7,16 +7,18 @@
 - [x] Enter existing nutrition data from CSV into `food_items`
 - [x] Create first view for logging meals (`+page.svelte`: Search, fuzzy match, log selection, recent logs display. RLS disabled on `food_items` as no auth yet.)
 - [x] Github project (Created repo `gurgeh/eatelligence` and pushed initial commit)
-- [ ] Fix page.svelte li cannot have role="button"
-- [ ] Delete logged meals
-- [ ] Choose multiplier and date for logged meals
-- [ ] Pick food item from last logged meals
-- [ ] Fix timestamp display
+- [x] Fix page.svelte li cannot have role="button" (Replaced `li` with `role="button"` with a nested `<button>` inside the `li` for accessibility and semantic correctness)
+- [x] Delete logged meals
+- [x] Choose multiplier and date for logged meals (Implemented inline editing in recent logs)
+- [x] Pick food item from last logged meals (Added copy button and delete confirmation to recent logs)
+- [x] Fix timestamp display (Changed input to `text`, added helpers for `YYYY-MM-DD HH:mm` local format, updated display format to `sv-SE` 24h)
+- [ ] Neater log format
+- [ ] Max width for desktop
+- [ ] Create view for entering new food items
 - [ ] Add some sort of authentication (and/or RLS policies)
 - [ ] Try putting online (GCP fendrich.se subdomain)
 - [ ] Make sure mobile works (maybe PWA)
 - [ ] Can it be packaged as an android app?
-- [ ] Create view for entering new food items
 - [ ] Upload the meal nutrition data to Supabase
 - [ ] LLM integration for searching/guessing nutrition data for new meals
 - [ ] Simple overview of last days nutrition

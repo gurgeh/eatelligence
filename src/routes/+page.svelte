@@ -31,6 +31,161 @@
 	let foodItemError: string | null = null;
 	let isLogging = false; // To prevent double clicks
 
+	// --- Inline Editing State ---
+	let editingLogId: number | null = null;
+	let editingProperty: 'multiplier' | 'timestamp' | null = null;
+	let editingValue: string | number = ''; // Use string to accommodate datetime-local
+
+	// --- Helper Functions ---
+
+	// Simple timestamp formatter (customize as needed)
+	function formatTimestampForDisplay(isoString: string): string {
+		if (!isoString) return 'Invalid Date';
+		try {
+			const date = new Date(isoString);
+			// Format for Swedish locale, 24-hour clock: e.g., "20 apr. 11:40"
+			return date.toLocaleString('sv-SE', {
+				month: 'short',
+				day: 'numeric',
+				hour: 'numeric', // 24-hour clock is default for sv-SE
+				minute: 'numeric',
+				hour12: false // Explicitly set to false
+			});
+		} catch (e) {
+			console.error('Error formatting date:', e);
+			return 'Invalid Date';
+		}
+	}
+
+	// Convert ISO string to Swedish local format (YYYY-MM-DD HH:mm)
+	function isoToSwedishLocal(isoString: string): string {
+		if (!isoString) return '';
+		try {
+			const date = new Date(isoString);
+			const year = date.getFullYear();
+			const month = (date.getMonth() + 1).toString().padStart(2, '0');
+			const day = date.getDate().toString().padStart(2, '0');
+			const hours = date.getHours().toString().padStart(2, '0');
+			const minutes = date.getMinutes().toString().padStart(2, '0');
+			return `${year}-${month}-${day} ${hours}:${minutes}`;
+		} catch (e) {
+			console.error('Error converting ISO to Swedish local:', e);
+			return '';
+		}
+	}
+
+	// Convert Swedish local format (YYYY-MM-DD HH:mm) string back to ISO string (UTC)
+	function swedishLocalToIso(localString: string): string {
+		if (!localString) return '';
+		// Basic validation for format YYYY-MM-DD HH:mm
+		if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(localString)) {
+			console.error('Invalid Swedish local format. Expected YYYY-MM-DD HH:mm');
+			return ''; // Return empty or throw error
+		}
+		try {
+			// Replace space with 'T' to help Date parsing, assume it's local time
+			const date = new Date(localString.replace(' ', 'T'));
+			if (isNaN(date.getTime())) {
+				throw new Error('Invalid date created from local string');
+			}
+			// Convert the local date object to UTC ISO string
+			return date.toISOString();
+		} catch (e) {
+			console.error('Error converting Swedish local to ISO:', e);
+			return ''; // Or handle error appropriately
+		}
+	}
+
+
+	// --- Keyboard Event Handlers for Spans (Start Edit on Enter) ---
+
+	function handleSpanKeydown(event: KeyboardEvent, log: FoodLog, property: 'multiplier' | 'timestamp') {
+		if (event.key === 'Enter') {
+			event.preventDefault(); // Prevent any default 'Enter' behavior
+			startEditing(log, property);
+		}
+	}
+
+	// --- Keyboard Event Handlers for Inputs ---
+
+	function handleInputKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter') {
+			event.preventDefault(); // Prevent potential form submission if nested
+			saveLogUpdate();
+		} else if (event.key === 'Escape') {
+			cancelEdit();
+		}
+	}
+
+	// --- Inline Editing Logic ---
+
+	function startEditing(log: FoodLog, property: 'multiplier' | 'timestamp') {
+		editingLogId = log.id;
+		editingProperty = property;
+		if (property === 'multiplier') {
+			editingValue = log.multiplier;
+		} else {
+			editingValue = isoToSwedishLocal(log.logged_at); // Convert for input using new function
+		}
+		// Optional: Focus the input element after it renders (requires a tick or element reference)
+	}
+
+	function cancelEdit() {
+		editingLogId = null;
+		editingProperty = null;
+		editingValue = '';
+	}
+
+	async function saveLogUpdate() {
+		if (editingLogId === null || editingProperty === null) return;
+
+		let updateData: { multiplier?: number; logged_at?: string } = {};
+		let finalValue: number | string;
+
+		if (editingProperty === 'multiplier') {
+			finalValue = Number(editingValue); // Ensure it's a number
+			if (isNaN(finalValue)) {
+				console.error('Invalid multiplier value');
+				logError = 'Multiplier must be a valid number.';
+				// Optionally keep editing mode active or reset
+				// cancelEdit(); // Or just return
+				return;
+			}
+			updateData.multiplier = finalValue;
+		} else {
+			// editingProperty === 'timestamp'
+			finalValue = swedishLocalToIso(editingValue as string); // Convert back to ISO using new function
+			if (!finalValue) {
+				console.error('Invalid timestamp value. Expected format: YYYY-MM-DD HH:mm');
+				logError = 'Invalid date/time format. Use YYYY-MM-DD HH:mm';
+				// cancelEdit(); // Or just return
+				return;
+			}
+			updateData.logged_at = finalValue;
+		}
+
+		// Clear previous errors
+		logError = null;
+
+		try {
+			const { error } = await supabase
+				.from('food_log')
+				.update(updateData)
+				.eq('id', editingLogId);
+
+			if (error) throw error;
+
+			// Exit editing mode and refresh data
+			cancelEdit();
+			await fetchRecentLogs();
+		} catch (err: any) {
+			console.error('Error updating log:', err);
+			logError = `Failed to update log: ${err.message}`;
+			// Keep editing mode active on error? Or cancel?
+			// cancelEdit();
+		}
+	}
+
 	// --- Data Fetching ---
 
 	async function fetchRecentLogs() {
@@ -154,9 +309,13 @@
 		isLogging = true;
 
 		try {
-			const { error } = await supabase
-				.from('food_log')
-				.insert([{ food_item_id: item.id, multiplier: 1 }]); // Default multiplier to 1 for now
+			const { error } = await supabase.from('food_log').insert([
+				{
+					food_item_id: item.id,
+					multiplier: 1, // Default multiplier
+					logged_at: new Date().toISOString() // Default timestamp to now
+				}
+			]);
 
 			if (error) throw error;
 
@@ -172,18 +331,62 @@
 			isLogging = false;
 		}
 	}
+
+	// --- Copy Logic ---
+	async function copyLog(log: FoodLog) {
+		// Use the direct food_item_id from the log entry
+		if (!log.food_item_id) {
+			console.error('Cannot copy log: food_item_id is missing.', log);
+			logError = 'Cannot copy log: Missing food item reference.';
+			return;
+		}
+
+		try {
+			const { error } = await supabase.from('food_log').insert([
+				{
+					food_item_id: log.food_item_id,
+					multiplier: log.multiplier, // Copy the multiplier
+					logged_at: new Date().toISOString() // Set timestamp to now
+				}
+			]);
+
+			if (error) throw error;
+
+			// Refresh logs on success
+			await fetchRecentLogs();
+		} catch (err: any) {
+			console.error('Error copying log:', err);
+			logError = `Failed to copy log: ${err.message}`;
+		}
+	}
+
+	// --- Delete Logic ---
+	async function deleteLog(logId: number, foodName: string | undefined) {
+		// Add a confirmation dialog
+		const itemName = foodName ?? 'this item'; // Use provided name or default text
+		if (!confirm(`Are you sure you want to delete the log for "${itemName}"?`)) {
+			return; // Stop if the user cancels
+		}
+
+		try {
+			const { error } = await supabase.from('food_log').delete().match({ id: logId });
+
+			if (error) throw error;
+
+			// Refresh the list after successful deletion
+			await fetchRecentLogs();
+		} catch (err: any) {
+			console.error('Error deleting log:', err);
+			logError = `Failed to delete log: ${err.message}`; // Update error state
+		}
+	}
 </script>
 
 <div class="container mx-auto p-4">
 	<h1 class="text-2xl font-bold mb-4">Log Food</h1>
 
-	<!-- Search Section -->
 	<div class="mb-6 relative">
-		{' '}
-		<!-- Added relative positioning for absolute positioned list -->
-		<label for="food-search" class="block text-sm font-medium text-gray-700 mb-1"
-			>Search Food Item:</label
-		>
+		<label for="food-search" class="block text-sm font-medium text-gray-700 mb-1">Search Food Item:</label>
 		<input
 			type="text"
 			id="food-search"
@@ -202,14 +405,15 @@
 				class="absolute z-10 mt-1 w-full border border-gray-200 rounded-md bg-white shadow-lg max-h-60 overflow-y-auto"
 			>
 				{#each searchResults as item (item.id)}
-					<li
-						class="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-						on:click={() => logSelectedItem(item)}
-						role="button"
-						tabindex="0"
-						on:keydown={(e) => e.key === 'Enter' && logSelectedItem(item)}
-					>
-						{item.name}
+					<li>
+						<button
+							type="button"
+							class="block w-full text-left px-4 py-2 hover:bg-gray-100 cursor-pointer"
+							on:click={() => logSelectedItem(item)}
+							on:keydown={(e) => e.key === 'Enter' && logSelectedItem(item)}
+						>
+							{item.name}
+						</button>
 					</li>
 				{/each}
 			</ul>
@@ -231,11 +435,78 @@
 		{:else if recentLogs.length > 0}
 			<ul class="space-y-2">
 				{#each recentLogs as log (log.id)}
-					<li class="p-2 border rounded-md bg-gray-50">
-						<span class="font-medium">{log.food_items?.name ?? 'Unknown Item'}</span>
-						<span class="text-sm text-gray-600 ml-2"
-							>(x{log.multiplier}) - {new Date(log.logged_at).toLocaleString()}</span
+					<li class="flex justify-between items-center p-2 border rounded-md bg-gray-50 min-h-[4rem]">
+						<div class="flex-grow mr-2">
+							<span class="font-medium">{log.food_items?.name ?? 'Unknown Item'}</span>
+							<div class="text-sm text-gray-600 ml-2 mt-1">
+								{#if editingLogId === log.id && editingProperty === 'multiplier'}
+									<input
+										type="number"
+										step="0.1"
+										bind:value={editingValue}
+										on:keydown={handleInputKeydown}
+										on:blur={saveLogUpdate}
+										class="px-1 py-0 border border-blue-300 rounded text-sm w-16"
+										aria-label="Edit multiplier"
+									/>
+								{:else}
+									<span
+										class="cursor-pointer hover:bg-gray-200 px-1 rounded"
+										on:click={() => startEditing(log, 'multiplier')}
+										role="button"
+										tabindex="0"
+										on:keydown={(e) => handleSpanKeydown(e, log, 'multiplier')}
+										title="Click to edit multiplier"
+									>
+										x{log.multiplier}
+									</span>
+								{/if}
+								<span class="mx-1">-</span>
+								{#if editingLogId === log.id && editingProperty === 'timestamp'}
+									<input
+										type="text"
+										placeholder="YYYY-MM-DD HH:mm"
+										bind:value={editingValue}
+										on:keydown={handleInputKeydown}
+										on:blur={saveLogUpdate}
+										class="px-1 py-0 border border-blue-300 rounded text-sm w-36"
+										aria-label="Edit timestamp (YYYY-MM-DD HH:mm)"
+									/>
+								{:else}
+									<span
+										class="cursor-pointer hover:bg-gray-200 px-1 rounded"
+										on:click={() => startEditing(log, 'timestamp')}
+										role="button"
+										tabindex="0"
+										on:keydown={(e) => handleSpanKeydown(e, log, 'timestamp')}
+										title="Click to edit timestamp"
+									>
+										{formatTimestampForDisplay(log.logged_at)}
+									</span>
+								{/if}
+							</div>
+						</div>
+						<!-- Copy Button -->
+						<button
+							type="button"
+							on:click={() => copyLog(log)}
+							class="ml-2 p-1 text-blue-700 bg-blue-100 rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+							aria-label={`Copy log for ${log.food_items?.name ?? 'Unknown Item'} as new entry`}
+							title="Copy as new entry (now)"
 						>
+							📋 <!-- Clipboard Emoji -->
+						</button>
+						<!-- Delete Button -->
+						<button
+							type="button"
+							on:click={() => deleteLog(log.id, log.food_items?.name)}
+							class="ml-2 p-1 text-red-700 bg-red-100 rounded hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+							aria-label={`Delete log for ${log.food_items?.name ?? 'Unknown Item'}`}
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						</button>
 					</li>
 				{/each}
 			</ul>

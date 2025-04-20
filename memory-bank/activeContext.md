@@ -21,6 +21,20 @@
 *   Diagnosed and resolved search issue: RLS on `food_items` was blocking data fetch as no user authentication is implemented yet.
 *   **Decision:** Disabled RLS on `food_items` table for now to allow data fetching without authentication. RLS on `food_log` remains disabled.
 *   Created GitHub repository `gurgeh/eatelligence` and pushed the initial commit.
+*   Fixed accessibility issue in `src/routes/+page.svelte`: Replaced `li` with `role="button"` by nesting a proper `<button>` element inside the `li`. Resolved related Svelte parsing errors caused by comment placement.
+*   Implemented inline editing for `multiplier` and `logged_at` in the recent logs list (`src/routes/+page.svelte`).
+    *   Logging now defaults `multiplier` to 1 and `logged_at` to the current time.
+    *   Users can click directly on the displayed multiplier or timestamp in the recent logs list to edit them.
+    *   Input fields appear in place for editing (`text` input for timestamp using `YYYY-MM-DD HH:mm` format).
+    *   Changes are saved automatically on blur or when Enter is pressed. Escape cancels the edit.
+    *   Updated timestamp display format (`formatTimestampForDisplay`) to use Swedish locale (`sv-SE`) and 24-hour clock.
+    *   Added/updated helper functions for timestamp conversion (`isoToSwedishLocal`, `swedishLocalToIso`).
+    *   Added state variables (`editingLogId`, `editingProperty`, `editingValue`) and logic (`startEditing`, `cancelEdit`, `saveLogUpdate`, `handleInputKeydown`, `handleSpanKeydown`) to manage the inline editing flow.
+*   Implemented copying logged food items in `src/routes/+page.svelte`.
+    *   Added a '📋' copy button next to the delete button in the recent logs list.
+    *   Created a `copyLog` function that inserts a new log entry using the selected log's `food_item_id` and `multiplier`, but sets `logged_at` to the current time.
+    *   The recent logs list is refreshed automatically after copying.
+*   Added a confirmation dialog (`window.confirm`) to the delete button in the recent logs list (`src/routes/+page.svelte`) to prevent accidental deletions.
 
 **Next Immediate Step:**
-*   Address the accessibility issue: Fix `<li>` element having `role="button"` in `eatelligence-app/src/routes/+page.svelte`.
+*   Add some sort of authentication (and/or RLS policies).
