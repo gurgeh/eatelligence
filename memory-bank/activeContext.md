@@ -25,11 +25,16 @@
 *   Implemented inline editing for `multiplier` and `logged_at` in the recent logs list (`src/routes/+page.svelte`).
     *   Logging now defaults `multiplier` to 1 and `logged_at` to the current time.
     *   Users can click directly on the displayed multiplier or timestamp in the recent logs list to edit them.
-    *   Input fields appear in place for editing (`text` input for timestamp using `YYYY-MM-DD HH:mm` format).
-    *   Changes are saved automatically on blur or when Enter is pressed. Escape cancels the edit.
-    *   Updated timestamp display format (`formatTimestampForDisplay`) to use Swedish locale (`sv-SE`) and 24-hour clock.
-    *   Added/updated helper functions for timestamp conversion (`isoToSwedishLocal`, `swedishLocalToIso`).
-    *   Added state variables (`editingLogId`, `editingProperty`, `editingValue`) and logic (`startEditing`, `cancelEdit`, `saveLogUpdate`, `handleInputKeydown`, `handleSpanKeydown`) to manage the inline editing flow.
+    *   Input fields appear for editing: `number` for multiplier, native `<input type="datetime-local">` for timestamp (visually hidden, triggered by clicking the displayed time).
+    *   The native date/time picker is programmatically shown using `inputElement.showPicker()` after a `tick()` when editing the timestamp. Resolved issues with click interception by hiding input off-screen and triggering picker programmatically.
+    *   Changes are saved automatically on blur, change (for picker), or when Enter is pressed. Escape cancels the edit.
+    *   Updated timestamp display format (`formatTimestampForDisplay`) to show only HH:mm using Swedish locale (`sv-SE`).
+    *   Added helper functions for timestamp conversion (`isoToDateTimeLocalString`, `dateTimeLocalToIsoString`) to handle `datetime-local` format. Removed old `isoToSwedishLocal`, `swedishLocalToIso`.
+    *   Updated state variables (`editingLogId`, `editingProperty`, `editingValue`) and logic (`startEditing`, `cancelEdit`, `saveLogUpdate`, `handleInputKeydown`, `handleSpanKeydown`) to manage the inline editing flow, including importing and using `tick`.
+*   Refined mobile UI in recent logs list (`src/routes/+page.svelte`):
+    *   Reduced font size for daily summary date header (`text-base`).
+    *   Reduced font size for food item name (`text-sm`).
+    *   Adjusted spacing between timestamp and food name by reducing timestamp container width (`w-12`) and using margins (`mr-2`) instead of `space-x`.
 *   Implemented copying logged food items in `src/routes/+page.svelte`.
     *   Added a '📋' copy button next to the delete button in the recent logs list.
     *   Created a `copyLog` function that inserts a new log entry using the selected log's `food_item_id` and `multiplier`, but sets `logged_at` to the current time.
@@ -57,6 +62,11 @@
     *   Added state variables (`logsPerPage`, `currentPage`, `loadingMore`, `canLoadMore`) to manage pagination.
     *   Added a "Load More" button that fetches the next page of logs and appends them to the list.
 *   Confirmed existence of index `idx_food_log_logged_at` on `food_log.logged_at` column via Supabase MCP SQL query, ensuring efficient ordering.
-
-**Next Immediate Step:**
-*   Implement a simple overview/summary of the last few days' total nutrition (e.g., displayed above the log section).
+*   Implemented PWA functionality:
+    *   Installed `vite-plugin-pwa` dependency.
+    *   Generated specific icons using ImageMagick (`convert` command):
+        *   `static/favicon.png` (64x64) from `static/simple_icon.png`
+        *   `static/icon-192x192.png` (192x192) from `static/simple_icon.png`
+        *   `static/icon-512x512.png` (512x512) from `static/text_icon.png`
+    *   Configured the plugin in `vite.config.ts` with a manifest referencing the generated `icon-192x192.png` and `icon-512x512.png`, and set `registerType: 'autoUpdate'` for the service worker.
+    *   The application can now be built (`npm run build`) and served locally (e.g., `npx serve build`). Accessing the local network IP allows installation as a PWA on devices, avoiding the need for public hosting for personal use.

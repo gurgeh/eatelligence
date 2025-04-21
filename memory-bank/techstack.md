@@ -14,4 +14,6 @@ Tailwind CSS was chosen for its utility-first approach, enabling rapid developme
     *   **Best Practice:** Place Svelte comments on their own separate lines, well away from HTML tags and logic blocks. For comments within the HTML structure itself, prefer standard HTML comments (`<!-- -->`), which are generally safer for the parser in that context.
     *   *(Learned during inline editing implementation in `+page.svelte`, April 20, 2025)*
 
+**EVEN WITH THE ABOVE NOTE, THE LLM KEEPS PLACING SVELTE COMMENTS AND THEN CATCHING ITSELF. NO COMMENTS IN SVELTE!**
+
 *   **Parser Error Debugging:** If the Svelte parser reports an "Unexpected token" or similar error, **the first step should always be to check for recently added or modified Svelte comments (`{/* ... */}`) in the template section.** These are a common source of misleading parser errors. Only after confirming comments are correctly placed should other potential syntax issues be investigated.

@@ -27,10 +27,9 @@ The Memory Bank consists of core files and optional context files, all in Markdo
    - Evolution of project decisions
 
 4. `activeContext.md`
-   - Current work focus
-   - Current thoughts and decisions
+   - Thoughts and decisions
    - Recent changes
-   - Next immediate steps - more detailed than progress.md
+   - Should be intermittently summarized when it grows too large
 
 ### Additional Context
 Create additional files/folders within memory-bank/ when they help organize thoughts and decisions. For example context and knowledge which may be obvious to the user but not to me.

@@ -18,11 +18,19 @@
 - [x] Add daily summary dividers to log (Grouped logs by date, calculated daily totals, updated template)
 - [x] Implement "Load More" button for log pagination (Used Supabase range query, added button, updated fetch logic)
 - [x] Confirm `logged_at` index exists (Verified index `idx_food_log_logged_at` using Supabase MCP)
-- [ ] Add some sort of authentication (and/or RLS policies)
-- [ ] Try putting online (GCP fendrich.se subdomain)
-- [ ] Make sure mobile works 
-- [ ] Can it be packaged as an android app? (maybe PWA)
-- [ ] Upload the last meal nutrition data to Supabase
+- [x] Make sure mobile works (Tested with dev tools, improved timestamp editing with native picker, adjusted font sizes and spacing for log items)
+- [x] Implement PWA functionality (Installed `vite-plugin-pwa`, configured manifest & service worker in `vite.config.ts`. App is now installable via local network serving, avoiding public hosting).
+- [x] Generate and install app icons
+- [x] Test PWA on mobile
 - [ ] Create view for displaying and entering new food items
-- [ ] LLM integration for searching/guessing nutrition data for new meals
+- [ ] Create view for mixing ingredients into meals
+- [ ] Do I miss any important nutritional data? Inflammation index?
+- [ ] LLM integration for searching/guessing nutrition data for new meals and ingredients
+- [ ] Upload the last meal nutrition data to Supabase
+- [ ] Authentication (Supabase) and decide on separate food items for each user
+- [ ] Host on eatelligence.fendrich.se (GCP bucket)
+- [ ] Remove Cal and GL to make the line shorter
+- [ ] Prettier interface. Maybe logo on desktop
+- [ ] Mean for last 7 days
+- [ ] Maybe voice input
 - [ ] Maybe try photo recognition for new meals

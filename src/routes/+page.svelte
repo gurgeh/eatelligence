@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte'; // Import tick
 	import { supabase } from '$lib/supabaseClient'; // Use $lib alias
 	import Fuse from 'fuse.js';
 	import { debounce } from 'lodash-es'; // Using lodash for debouncing search input
@@ -89,45 +89,42 @@
 		}
 	}
 
-	// Convert ISO string to Swedish local format (YYYY-MM-DD HH:mm)
-	function isoToSwedishLocal(isoString: string): string {
+	// Convert ISO string to YYYY-MM-DDTHH:mm format (local time) for datetime-local input
+	function isoToDateTimeLocalString(isoString: string): string {
 		if (!isoString) return '';
 		try {
 			const date = new Date(isoString);
+			if (isNaN(date.getTime())) return ''; // Invalid date
+
 			const year = date.getFullYear();
 			const month = (date.getMonth() + 1).toString().padStart(2, '0');
 			const day = date.getDate().toString().padStart(2, '0');
 			const hours = date.getHours().toString().padStart(2, '0');
 			const minutes = date.getMinutes().toString().padStart(2, '0');
-			return `${year}-${month}-${day} ${hours}:${minutes}`;
+
+			return `${year}-${month}-${day}T${hours}:${minutes}`;
 		} catch (e) {
-			console.error('Error converting ISO to Swedish local:', e);
+			console.error('Error converting ISO to datetime-local string:', e);
 			return '';
 		}
 	}
 
-	// Convert Swedish local format (YYYY-MM-DD HH:mm) string back to ISO string (UTC)
-	function swedishLocalToIso(localString: string): string {
+	// Convert YYYY-MM-DDTHH:mm string (local time) back to ISO string (UTC)
+	function dateTimeLocalToIsoString(localString: string): string {
 		if (!localString) return '';
-		// Basic validation for format YYYY-MM-DD HH:mm
-		if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(localString)) {
-			console.error('Invalid Swedish local format. Expected YYYY-MM-DD HH:mm');
-			return ''; // Return empty or throw error
-		}
 		try {
-			// Replace space with 'T' to help Date parsing, assume it's local time
-			const date = new Date(localString.replace(' ', 'T'));
+			// Create date object assuming the input string is in the local timezone
+			const date = new Date(localString);
 			if (isNaN(date.getTime())) {
-				throw new Error('Invalid date created from local string');
+				throw new Error('Invalid date created from datetime-local string');
 			}
 			// Convert the local date object to UTC ISO string
 			return date.toISOString();
 		} catch (e) {
-			console.error('Error converting Swedish local to ISO:', e);
-			return ''; // Or handle error appropriately
+			console.error('Error converting datetime-local to ISO:', e);
+			return '';
 		}
 	}
-
 
 	// --- Keyboard Event Handlers for Spans (Start Edit on Enter) ---
 
@@ -151,16 +148,33 @@
 
 	// --- Inline Editing Logic ---
 
-	function startEditing(log: FoodLog, property: 'multiplier' | 'timestamp') {
+	async function startEditing(log: FoodLog, property: 'multiplier' | 'timestamp') {
 		editingLogId = log.id;
 		editingProperty = property;
 		if (property === 'multiplier') {
 			editingValue = log.multiplier;
-		} else {
-			editingValue = isoToSwedishLocal(log.logged_at); // Convert for input using new function
+			// Optional: Focus the multiplier input after a tick
+			// await tick();
+			// document.getElementById(`multiplier-edit-${log.id}`)?.focus();
+		} else { // property === 'timestamp'
+			editingValue = isoToDateTimeLocalString(log.logged_at); // Use new helper for datetime-local
+			// Wait for Svelte to update the DOM and render the input
+			await tick();
+			// Now find the input and show the picker
+			const inputElement = document.getElementById(`datetime-edit-${log.id}`) as HTMLInputElement | null;
+			if (inputElement) {
+				try {
+					// Attempt to show the native date/time picker
+					inputElement.showPicker();
+				} catch (e) {
+					console.error("Browser might not support showPicker() or input isn't ready/interactive.", e);
+					// Fallback: Focus the element so user can interact (though it's visually hidden)
+					// inputElement.focus(); // This might not be ideal if truly hidden
+				}
+			}
 		}
-		// Optional: Focus the input element after it renders (requires a tick or element reference)
 	}
+
 
 	function cancelEdit() {
 		editingLogId = null;
@@ -184,12 +198,11 @@
 				return;
 			}
 			updateData.multiplier = finalValue;
-		} else {
-			// editingProperty === 'timestamp'
-			finalValue = swedishLocalToIso(editingValue as string); // Convert back to ISO using new function
+		} else { // editingProperty === 'timestamp'
+			finalValue = dateTimeLocalToIsoString(editingValue as string); // Convert back to ISO using new helper
 			if (!finalValue) {
-				console.error('Invalid timestamp value. Expected format: YYYY-MM-DD HH:mm');
-				logError = 'Invalid date/time format. Use YYYY-MM-DD HH:mm';
+				console.error('Invalid timestamp value from datetime-local input.');
+				logError = 'Invalid date/time selected.';
 				// cancelEdit(); // Or just return
 				return;
 			}
@@ -602,7 +615,7 @@
 						<!-- Daily Summary Divider -->
 						<li class="pt-4 pb-1 border-b-2 border-gray-300">
 							<div class="flex justify-between items-baseline mb-1">
-								<h3 class="text-lg font-semibold text-gray-700">{item.date}</h3>
+								<h3 class="text-base font-semibold text-gray-700">{item.date}</h3> <!-- Reduced size from text-lg -->
 								<!-- Removed "Daily Totals" span -->
 							</div>
 							<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -633,34 +646,43 @@
 						<!-- Individual Log Item -->
 						<li class="p-2 border rounded-md bg-gray-50">
 							<div class="flex justify-between items-center min-h-[2.5rem]"> <!-- Main log info row -->
-								<div class="flex items-center space-x-3 flex-grow mr-2 overflow-hidden">
-									<div class="text-sm text-gray-600 w-16 flex-shrink-0"> <!-- Reduced width from w-28 -->
-									{#if editingLogId === log.id && editingProperty === 'timestamp'}
-									<input
-										type="text"
-										placeholder="YYYY-MM-DD HH:mm"
-										bind:value={editingValue}
-										on:keydown={handleInputKeydown}
-										on:blur={saveLogUpdate}
-										class="px-1 py-0 border border-blue-300 rounded text-sm w-full"
-										aria-label="Edit timestamp (YYYY-MM-DD HH:mm)"
-									/>
-								{:else}
-									<span
-										class="cursor-pointer hover:bg-gray-200 px-1 rounded block"
-										on:click={() => startEditing(log, 'timestamp')}
-										role="button"
-										tabindex="0"
-										on:keydown={(e) => handleSpanKeydown(e, log, 'timestamp')}
-										title="Click to edit timestamp"
-									>
-										{formatTimestampForDisplay(log.logged_at)}
-									</span>
-								{/if}
-							</div>
+								<div class="flex items-center flex-grow mr-2 overflow-hidden"> <!-- Removed space-x-3 -->
+									<!-- Timestamp Display/Edit Area -->
+									<div class="text-sm text-gray-600 w-12 flex-shrink-0 relative mr-2"> <!-- Reduced width from w-16, keep mr-2 -->
+										{#if editingLogId === log.id && editingProperty === 'timestamp'}
+											<!-- datetime-local input, visually minimal/hidden but functional -->
+											<input
+												type="datetime-local"
+												bind:value={editingValue}
+												on:keydown={handleInputKeydown}
+												on:blur={saveLogUpdate}
+												on:change={saveLogUpdate}
+												class="absolute -left-full w-px h-px opacity-0"
+												aria-label="Edit timestamp"
+												id={`datetime-edit-${log.id}`}
+											/>
+											<!-- Display HH:mm while editing (picker should be open). Not clickable. -->
+											<span class="px-1 rounded block" title="Editing time...">
+												{formatTimestampForDisplay(log.logged_at)}
+											</span>
+										{:else}
+											<!-- Clickable span to initiate editing -->
+											<span
+												class="cursor-pointer hover:bg-gray-200 px-1 rounded block"
+												on:click={() => startEditing(log, 'timestamp')}
+												role="button"
+												tabindex="0"
+												on:keydown={(e) => handleSpanKeydown(e, log, 'timestamp')}
+												title="Click to edit timestamp"
+											>
+												{formatTimestampForDisplay(log.logged_at)}
+											</span>
+										{/if}
+									</div>
+									<!-- End Timestamp Area -->
 
-							<span class="font-medium truncate flex-shrink min-w-0" title={log.food_items?.name ?? 'Unknown Item'}>
-								{log.food_items?.name ?? 'Unknown Item'}
+									<span class="text-sm truncate flex-shrink min-w-0 mr-2" title={log.food_items?.name ?? 'Unknown Item'}> <!-- Reduced size, add mr-2 -->
+										{log.food_items?.name ?? 'Unknown Item'}
 							</span>
 
 							<div class="text-sm text-gray-600 flex-shrink-0">
