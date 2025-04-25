@@ -25,7 +25,7 @@
 - [x] Create view for managing food items (`/food-items`: Find, View, Edit, Delete, Create, Styled badges, Search fixed, Delete reactivity fixed)
 - [x] Handle deleted food items in log view (Show "(Deleted item)")
 - [x] Add `serving_qty` and `serving_unit` columns to `food_items` table via migration
-- [ ] Create view for mixing ingredients into meals (or check logged ingredients to combine them)
+- [x] Create view for creating recipes from log entries (`/create-recipe`)
 - [ ] LLM integration for searching/guessing nutrition data for new meals and ingredients
 - [ ] Add DII and Omega-3/6 ratio
 - [ ] Upload the last meal nutrition data to Supabase

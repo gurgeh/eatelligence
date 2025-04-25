@@ -603,7 +603,12 @@
 
 	<!-- Recent Logs Section -->
 	<div>
-		<h2 class="text-xl font-semibold mb-3">Recent Logs</h2>
+		<div class="flex justify-between items-center mb-3">
+			<h2 class="text-xl font-semibold">Recent Logs</h2>
+			<a href="/create-recipe" class="btn btn-sm btn-outline btn-primary">
+				Create Recipe
+			</a>
+		</div>
 		{#if loadingLogs}
 			<p>Loading recent logs...</p>
 		{:else if logError}

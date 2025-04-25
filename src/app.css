@@ -1,2 +1,2 @@
 @import 'tailwindcss';
-@plugin '@tailwindcss/forms';
+/* @plugin directive removed, forms plugin handled in tailwind.config.js */
