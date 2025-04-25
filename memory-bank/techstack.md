@@ -1,6 +1,8 @@
 We use Supabase as a database and authentication service.
 I do no think we need a backend API, as all CRUD can be done by Supabase and the logic on the frontend.
 
+The Supabase project ID is in ./.env
+
 **Frontend Framework:** SvelteKit
 **CSS Framework:** Tailwind CSS
 

@@ -681,8 +681,8 @@
 									</div>
 									<!-- End Timestamp Area -->
 
-									<span class="text-sm truncate flex-shrink min-w-0 mr-2" title={log.food_items?.name ?? 'Unknown Item'}> <!-- Reduced size, add mr-2 -->
-										{log.food_items?.name ?? 'Unknown Item'}
+									<span class="text-sm truncate flex-shrink min-w-0 mr-2" title={log.food_items?.name ?? '(Deleted item)'}> <!-- Reduced size, add mr-2 -->
+										{log.food_items?.name ?? '(Deleted item)'}
 							</span>
 
 							<div class="text-sm text-gray-600 flex-shrink-0">
@@ -716,7 +716,7 @@
 								type="button"
 								on:click={() => copyLog(log)}
 								class="p-1 text-blue-700 bg-blue-100 rounded hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
-								aria-label={`Copy log for ${log.food_items?.name ?? 'Unknown Item'} as new entry`}
+								aria-label={`Copy log for ${log.food_items?.name ?? '(Deleted item)'} as new entry`}
 								title="Copy as new entry (now)"
 							>
 								📋
@@ -725,7 +725,7 @@
 								type="button"
 								on:click={() => deleteLog(log.id, log.food_items?.name)}
 								class="p-1 text-red-700 bg-red-100 rounded hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
-								aria-label={`Delete log for ${log.food_items?.name ?? 'Unknown Item'}`}
+								aria-label={`Delete log for ${log.food_items?.name ?? '(Deleted item)'}`}
 							>
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 									<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />

@@ -22,10 +22,12 @@
 - [x] Implement PWA functionality (Installed `vite-plugin-pwa`, configured manifest & service worker in `vite.config.ts`. App is now installable via local network serving, avoiding public hosting).
 - [x] Generate and install app icons
 - [x] Test PWA on mobile
-- [ ] Create view for displaying and entering new food items
-- [ ] Create view for mixing ingredients into meals
-- [ ] Do I miss any important nutritional data? Inflammation index?
+- [x] Create view for managing food items (`/food-items`: Find, View, Edit, Delete, Create, Styled badges, Search fixed, Delete reactivity fixed)
+- [x] Handle deleted food items in log view (Show "(Deleted item)")
+- [x] Add `serving_qty` and `serving_unit` columns to `food_items` table via migration
+- [ ] Create view for mixing ingredients into meals (or check logged ingredients to combine them)
 - [ ] LLM integration for searching/guessing nutrition data for new meals and ingredients
+- [ ] Add DII and Omega-3/6 ratio
 - [ ] Upload the last meal nutrition data to Supabase
 - [ ] Authentication (Supabase) and decide on separate food items for each user
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)

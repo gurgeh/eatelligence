@@ -1,0 +1,448 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { supabase } from '$lib/supabaseClient';
+  import Fuse from 'fuse.js';
+  import { tick } from 'svelte';
+  import type { FoodItem } from '$lib/types'; // Import the type
+
+  let foodItems: FoodItem[] = [];
+  let filteredItems: FoodItem[] = [];
+  let searchQuery = '';
+  let loading = true;
+  let error: string | null = null;
+  let fuse: Fuse<FoodItem>;
+
+  // --- Inline Editing State ---
+  let editingItemId: number | null = null;
+  let editingProperty: keyof FoodItem | null = null;
+  let editingValue: string | number | null = null;
+  let inputElement: HTMLInputElement | HTMLTextAreaElement | null = null;
+
+  // --- Fetch Food Items ---
+  async function fetchFoodItems() {
+    loading = true;
+    error = null;
+    try {
+      const { data, error: dbError } = await supabase
+        .from('food_items')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (dbError) throw dbError;
+      if (data) {
+        foodItems = data;
+        // Initialize Fuse.js for searching
+        fuse = new Fuse(foodItems, {
+          keys: ['name', 'comment'],
+          threshold: 0.3, // Adjust threshold for fuzziness
+           includeScore: false,
+         });
+         // Initial filter is handled by the reactive statement now
+       }
+     } catch (err: any) {
+      console.error('Error fetching food items:', err);
+      error = `Failed to load food items: ${err.message}`;
+      foodItems = [];
+      filteredItems = [];
+    } finally {
+      loading = false;
+    }
+  }
+
+   // --- Search/Filter ---
+   // The filterItems function is removed; logic is now in the reactive statement below.
+ 
+   // Reactive statements:
+   // 1. Re-initialize Fuse whenever foodItems changes
+   $: if (foodItems) {
+     fuse = new Fuse(foodItems, {
+       keys: ['name', 'comment'],
+       threshold: 0.3,
+       includeScore: false,
+     });
+   }
+   // 2. Calculate filteredItems whenever fuse, searchQuery, or foodItems changes
+   $: filteredItems =
+     !fuse || !searchQuery.trim()
+       ? foodItems || []
+       : fuse.search(searchQuery.trim()).map(result => result.item);
+ 
+   // --- New Item Form State ---
+   let isCreating = false;
+   let newItem: Partial<FoodItem> = {}; // Use Partial for the new item form
+
+   // --- Inline Editing Functions (Adapted from log view) ---
+  function startEditing(item: FoodItem, property: keyof FoodItem) {
+    isCreating = false; // Ensure we are not in create mode
+    editingItemId = item.id;
+    editingProperty = property;
+    editingValue = item[property] as string | number; // Type assertion might be needed
+    tick().then(() => {
+      inputElement?.focus();
+      inputElement?.select(); // Select text for easy replacement
+    });
+  }
+
+  function cancelEdit() {
+    editingItemId = null;
+    editingProperty = null;
+    editingValue = null;
+  }
+
+  async function saveItemUpdate() {
+    if (editingItemId === null || editingProperty === null || editingValue === null) return;
+
+    const originalItem = foodItems.find(item => item.id === editingItemId);
+    if (!originalItem) return;
+
+    // Basic validation/conversion (expand as needed)
+    let updateValue: any = editingValue;
+    const numericFields: (keyof FoodItem)[] = ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl'];
+    if (numericFields.includes(editingProperty)) {
+      updateValue = parseFloat(editingValue as string);
+      if (isNaN(updateValue)) {
+        console.error('Invalid number format for', editingProperty);
+        // Optionally show user error
+        cancelEdit();
+        return;
+      }
+    }
+
+    // Avoid saving if value hasn't changed
+    if (originalItem[editingProperty] === updateValue) {
+      cancelEdit();
+      return;
+    }
+
+    try {
+      const { error: updateError } = await supabase
+        .from('food_items')
+        .update({ [editingProperty]: updateValue })
+        .eq('id', editingItemId);
+
+      if (updateError) throw updateError;
+
+       // Update local state optimistically (or re-fetch)
+       const itemIndex = foodItems.findIndex(item => item.id === editingItemId);
+       if (itemIndex > -1) {
+          foodItems[itemIndex] = { ...foodItems[itemIndex], [editingProperty]: updateValue };
+          foodItems = [...foodItems]; // Trigger reactivity for fuse re-initialization and filtering
+        }
+        cancelEdit();
+      } catch (err: any) {
+      console.error(`Error updating ${editingProperty}:`, err);
+      // Optionally show user error
+      cancelEdit(); // Cancel edit on error
+    }
+  }
+
+  function handleInputKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      saveItemUpdate();
+    } else if (event.key === 'Escape') {
+      cancelEdit();
+    }
+  }
+
+  // --- Delete Function ---
+  async function deleteItem(itemId: number) {
+    if (!window.confirm('Are you sure you want to delete this food item? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('food_items')
+        .delete()
+        .eq('id', itemId);
+
+      if (deleteError) throw deleteError;
+  
+        // Remove from local state
+        foodItems = foodItems.filter(item => item.id !== itemId); // Trigger reactivity for fuse re-initialization and filtering
+      } catch (err: any) {
+        console.error('Error deleting item:', err);
+      error = `Failed to delete item: ${err.message}`;
+      // Optionally show user error
+    }
+  }
+
+   // --- Create Item Functions ---
+   function showCreateForm() {
+     cancelEdit(); // Cancel any ongoing edit
+      isCreating = true;
+      newItem = { // Reset form fields
+        name: '',
+        serving_unit: 'g', // Default serving unit for 100 qty
+        serving_qty: 100,
+        calories: null, protein: null, fat: null, carbs: null, fibers: null, sugar: null,
+        mufa: null, pufa: null, sfa: null, gl: null, comment: null
+     };
+     // Optionally focus the first input field after tick
+     tick().then(() => {
+        const nameInput = document.getElementById('new-item-name');
+        nameInput?.focus();
+     });
+   }
+
+   function cancelCreate() {
+     isCreating = false;
+     newItem = {};
+   }
+
+   async function saveNewItem() {
+     // Basic validation (add more as needed)
+     if (!newItem.name?.trim()) {
+       alert('Item name is required.');
+       return;
+     }
+     if (newItem.serving_qty === undefined || newItem.serving_qty <= 0) {
+        alert('Serving quantity must be a positive number.');
+        return;
+     }
+      if (!newItem.serving_unit?.trim()) {
+        alert('Serving unit is required.');
+        return;
+     }
+
+     // Prepare data for Supabase (convert nulls if needed, ensure correct types)
+     const itemToInsert = {
+        name: newItem.name.trim(),
+        serving_unit: newItem.serving_unit.trim(),
+        serving_qty: newItem.serving_qty,
+        calories: newItem.calories ?? null,
+        protein: newItem.protein ?? null,
+        fat: newItem.fat ?? null,
+        carbs: newItem.carbs ?? null,
+        fibers: newItem.fibers ?? null,
+        sugar: newItem.sugar ?? null,
+        mufa: newItem.mufa ?? null,
+        pufa: newItem.pufa ?? null,
+        sfa: newItem.sfa ?? null,
+        gl: newItem.gl ?? null,
+        comment: newItem.comment?.trim() || null
+     };
+
+     try {
+        const { data, error: insertError } = await supabase
+            .from('food_items')
+            .insert([itemToInsert])
+            .select(); // Select to get the newly created item back
+
+        if (insertError) throw insertError;
+
+        // Add the new item to the local list and reset form
+        if (data && data.length > 0) {
+            foodItems = [data[0] as FoodItem, ...foodItems]; // Add to beginning
+        }
+        cancelCreate(); // Hide form and reset newItem
+        // Reactivity will update filteredItems
+
+     } catch (err: any) {
+        console.error('Error saving new item:', err);
+        error = `Failed to save new item: ${err.message}`; // Show error
+     }
+   }
+
+
+   // --- Lifecycle ---
+   onMount(() => {
+     fetchFoodItems();
+   });
+
+  // --- Helper for badge display (similar to log view) ---
+  function formatValue(value: number | null | undefined): string {
+    if (value === null || value === undefined) return '-';
+    // Simple integer rounding for now
+     return Math.round(value).toString();
+   }
+ 
+ </script>
+
+<div class="container mx-auto p-4 max-w-5xl">
+  <h1 class="text-2xl font-bold mb-4">Manage Food Items</h1>
+
+  <!-- Search Input -->
+  <div class="mb-4">
+    <input
+      type="search"
+      bind:value={searchQuery}
+       placeholder="Search food items by name or comment..."
+       class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+     />
+   </div>
+ 
+   <!-- Add New Item Button -->
+   <div class="mb-4 text-right">
+     <button
+       type="button"
+       on:click={showCreateForm}
+       class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+       disabled={isCreating}
+     >
+       + Add New Item
+     </button>
+   </div>
+ 
+   <!-- New Item Form (conditionally rendered) -->
+   {#if isCreating}
+     <div class="border border-indigo-300 rounded-lg p-4 shadow-sm bg-indigo-50 mb-6">
+       <h2 class="text-lg font-semibold mb-3 text-indigo-800">Create New Food Item</h2>
+       <!-- Name, Serving Qty, Serving Unit -->
+       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+         <div>
+           <label for="new-item-name" class="block text-sm font-medium text-gray-700">Name</label>
+           <input type="text" id="new-item-name" bind:value={newItem.name} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" required />
+         </div>
+         <div>
+           <label for="new-item-qty" class="block text-sm font-medium text-gray-700">Serving Qty</label>
+           <input type="number" id="new-item-qty" bind:value={newItem.serving_qty} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" required min="0" />
+         </div>
+         <div>
+           <label for="new-item-unit" class="block text-sm font-medium text-gray-700">Serving Unit</label>
+           <input type="text" id="new-item-unit" bind:value={newItem.serving_unit} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" required placeholder="e.g., g, ml, portion" />
+         </div>
+       </div>
+       <!-- Nutritional Info Inputs -->
+       <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-3 text-sm">
+         {#each ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl'] as prop (prop)}
+           <div>
+             <label for="new-item-{prop}" class="block font-medium text-gray-700 capitalize">{prop}</label>
+             <input type="number" step="any" id="new-item-{prop}" bind:value={newItem[prop as keyof typeof newItem]} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" placeholder="Optional" />
+           </div>
+         {/each}
+       </div>
+       <!-- Comment -->
+       <div class="mb-3">
+         <label for="new-item-comment" class="block text-sm font-medium text-gray-700">Comment (Optional)</label>
+         <textarea id="new-item-comment" bind:value={newItem.comment} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" rows="2"></textarea>
+       </div>
+       <!-- Form Actions -->
+       <div class="flex justify-end space-x-3">
+         <button type="button" on:click={cancelCreate} class="px-3 py-1 border border-gray-300 rounded text-gray-700 hover:bg-gray-50">Cancel</button>
+         <button type="button" on:click={saveNewItem} class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">Save Item</button>
+       </div>
+     </div>
+   {/if}
+ 
+   <!-- Loading/Error State -->
+  {#if loading}
+    <p class="text-center text-gray-500">Loading food items...</p>
+  {:else if error}
+    <p class="text-center text-red-500">{error}</p>
+  {:else if filteredItems.length === 0 && searchQuery}
+     <p class="text-center text-gray-500">No food items match your search "{searchQuery}".</p>
+  {:else if foodItems.length === 0}
+     <p class="text-center text-gray-500">No food items found. Add some!</p>
+  {/if}
+
+  <!-- Food Items List -->
+  <ul class="space-y-4">
+    {#each filteredItems as item (item.id)}
+      <li class="border border-gray-200 rounded-lg p-4 shadow-sm bg-white">
+        <div class="flex justify-between items-start mb-2">
+          <!-- Item Name & Serving -->
+          <div class="flex-grow mr-4">
+            {#if editingItemId === item.id && editingProperty === 'name'}
+              <input
+                type="text"
+                bind:this={inputElement}
+                bind:value={editingValue}
+                on:keydown={handleInputKeydown}
+                on:blur={saveItemUpdate}
+                class="w-full p-1 border border-blue-300 rounded"
+              />
+            {:else}
+              <span
+                class="font-semibold text-lg cursor-pointer hover:bg-yellow-100"
+                on:click={() => startEditing(item, 'name')}
+                on:keydown={(e) => { if (e.key === 'Enter') startEditing(item, 'name'); }}
+                role="button"
+                tabindex="0"
+              >
+                {item.name}
+              </span>
+            {/if}
+            <span class="text-sm text-gray-500 ml-2">
+              ({item.serving_qty} {item.serving_unit})
+            </span>
+             {#if editingItemId === item.id && editingProperty === 'comment'}
+               <textarea
+                 bind:this={inputElement}
+                 bind:value={editingValue}
+                 on:keydown={handleInputKeydown}
+                 on:blur={saveItemUpdate}
+                 class="w-full p-1 border border-blue-300 rounded mt-1 text-sm"
+                  rows="2"
+                ></textarea>
+              {:else}
+                <button
+                  type="button"
+                  class="text-sm text-left text-gray-600 mt-1 cursor-pointer hover:bg-yellow-100 p-1 rounded w-full"
+                  on:click={() => startEditing(item, 'comment')}
+                  aria-label="Edit comment"
+                >
+                  {item.comment || '(Click to add comment)'}
+                </button>
+              {/if}
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex-shrink-0">
+            <button
+              on:click={() => deleteItem(item.id)}
+              class="text-red-500 hover:text-red-700 p-1"
+              aria-label="Delete item"
+            >
+              🗑️
+            </button>
+            <!-- Add Edit button if not using inline editing for all fields -->
+          </div>
+        </div>
+
+        <!-- Nutritional Info Badges (Inline Editable) -->
+        <div class="flex flex-wrap gap-2 text-xs">
+          {#each ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl'] as prop (prop)}
+            {@const colors = {
+              calories: 'bg-blue-100 text-blue-800',
+              protein: 'bg-green-100 text-green-800',
+              fat: 'bg-green-100 text-green-800',
+              carbs: 'bg-green-100 text-green-800',
+              fibers: 'bg-yellow-100 text-yellow-800',
+              sugar: 'bg-yellow-100 text-yellow-800',
+              mufa: 'bg-orange-100 text-orange-800',
+              pufa: 'bg-orange-100 text-orange-800',
+              sfa: 'bg-orange-100 text-orange-800',
+              gl: 'bg-purple-100 text-purple-800',
+            }}
+            <div class="{colors[prop as keyof typeof colors] || 'bg-gray-100 text-gray-800'} px-1.5 py-0.5 rounded-md">
+              <span class="font-medium uppercase text-gray-500">{prop.slice(0,3)}:</span>
+              {#if editingItemId === item.id && editingProperty === prop}
+                <input
+                  type="number"
+                  step="any"
+                  bind:this={inputElement}
+                  bind:value={editingValue}
+                  on:keydown={handleInputKeydown}
+                  on:blur={saveItemUpdate}
+                  class="w-16 p-0 border border-blue-300 rounded text-xs ml-1"
+                />
+              {:else}
+                <span
+                  class="ml-1 cursor-pointer hover:bg-yellow-100 px-1"
+                  on:click={() => startEditing(item, prop as keyof FoodItem)}
+                  on:keydown={(e) => { if (e.key === 'Enter') startEditing(item, prop as keyof FoodItem); }}
+                  role="button"
+                   tabindex="0"
+                 >
+                   {formatValue(item[prop as keyof FoodItem] as number | null)}
+                 </span>
+               {/if}
+            </div>
+          {/each}
+        </div>
+      </li>
+    {/each}
+  </ul>
+
+</div>
