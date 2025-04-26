@@ -4,6 +4,7 @@
   import Fuse from 'fuse.js';
   import { tick } from 'svelte';
   import type { FoodItem } from '$lib/types'; // Import the type
+  import { GoogleGenAI } from '@google/genai'; // <-- Correct Gemini import name
 
   let foodItems: FoodItem[] = [];
   let filteredItems: FoodItem[] = [];
@@ -67,11 +68,18 @@
        ? foodItems || []
        : fuse.search(searchQuery.trim()).map(result => result.item);
  
-   // --- New Item Form State ---
-   let isCreating = false;
-   let newItem: Partial<FoodItem> = {}; // Use Partial for the new item form
+  // --- New Item Form State ---
+  let isCreating = false;
+  let newItem: Partial<FoodItem> = {}; // Use Partial for the new item form
 
-   // --- Inline Editing Functions (Adapted from log view) ---
+  // --- Gemini API State ---
+  let geminiApiKey = '';
+  let isAutoFilling = false;
+  let autoFillError: string | null = null;
+  let showApiKeyInput = false; // Control visibility of API key input
+  let apiKeyInput = ''; // Temporary input for the API key field
+
+  // --- Inline Editing Functions (Adapted from log view) ---
   function startEditing(item: FoodItem, property: keyof FoodItem) {
     isCreating = false; // Ensure we are not in create mode
     editingItemId = item.id;
@@ -245,9 +253,135 @@
    }
 
 
+   // --- API Key Handling ---
+   function loadApiKey() {
+     if (typeof window !== 'undefined') {
+       geminiApiKey = localStorage.getItem('geminiApiKey') || '';
+       apiKeyInput = geminiApiKey; // Sync input field if needed
+     }
+   }
+
+   function saveApiKey() {
+     if (typeof window !== 'undefined') {
+       localStorage.setItem('geminiApiKey', apiKeyInput);
+       geminiApiKey = apiKeyInput;
+       showApiKeyInput = false; // Hide input after saving
+       autoFillError = null; // Clear any previous key errors
+       alert('API Key saved successfully!');
+     }
+   }
+
+   // --- Gemini Auto-fill Function ---
+   async function autoFillNutrition() {
+     if (!newItem.name?.trim()) {
+       autoFillError = 'Please enter a food item name first.';
+       return;
+     }
+     if (!geminiApiKey) {
+       autoFillError = 'Gemini API Key is missing. Please enter and save it below.';
+       showApiKeyInput = true;
+       return;
+     }
+
+     isAutoFilling = true;
+      autoFillError = null;
+
+      try {
+        // Correct initialization: pass options object
+        const genAI = new GoogleGenAI({ apiKey: geminiApiKey });
+        // Remove incorrect getGenerativeModel call
+
+        // Define the desired JSON structure and prompt
+       const jsonSchema = `{
+         "calories": number | null,
+         "protein": number | null,
+         "fat": number | null,
+         "carbs": number | null,
+         "fibers": number | null,
+         "sugar": number | null,
+         "mufa": number | null,
+         "pufa": number | null,
+         "sfa": number | null,
+         "gl": number | null
+       }`;
+
+       // Gather existing data from the form
+       const existingData: { [key: string]: number } = {};
+       const fields: (keyof FoodItem)[] = ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl'];
+       fields.forEach(field => {
+         const value = newItem[field];
+         if (typeof value === 'number' && !isNaN(value)) {
+           existingData[field] = value;
+         }
+       });
+
+       let existingDataPrompt = '';
+       if (Object.keys(existingData).length > 0) {
+         existingDataPrompt = `\n\nUse the following already known values (per 100g) to help inform your search and estimations:\n${JSON.stringify(existingData)}`;
+       }
+
+       const prompt = `Provide nutritional information per 100g for the food item "${newItem.name.trim()}".
+Use web search (grounding) to find the most accurate data.${existingDataPrompt}
+If specific data for fields like MUFA, PUFA, SFA, or GL is not found for the exact name, search for a more general category (e.g., search for "cheese" if "Brand X Swiss Cheese" data is missing).
+Estimate any remaining nutritional values you cannot find through search, using any provided known values as context. Ensure ALL fields in the requested JSON structure are populated with a numerical value (use null only if estimation is impossible after searching).
+Return the result ONLY as a valid JSON object matching this structure, with no surrounding text or explanations:
+${jsonSchema}`;
+
+       // Correct API call using 'config' for tools, access text via candidates
+       const result = await genAI.models.generateContent({
+         model: "gemini-2.5-pro-preview-03-25", // <-- Use specific preview model ID
+         contents: [{ role: "user", parts: [{ text: prompt }] }],
+         config: { // <-- Use 'config' based on user example
+           tools: [{ googleSearch: {} }], // Enable grounding tool
+         },
+       });
+
+       // Access response text via candidates array
+       const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+       if (!responseText) {
+         console.error("No text found in Gemini response:", result);
+         throw new Error("AI response did not contain text.");
+       }
+
+       // Attempt to parse the JSON response (add robust extraction if needed)
+       let nutritionData: Partial<FoodItem>;
+       try {
+         // Basic cleanup: remove potential markdown code fences
+         const cleanedText = responseText.replace(/```json\n?/, '').replace(/```$/, '');
+         nutritionData = JSON.parse(cleanedText);
+       } catch (parseError) {
+         console.error("Failed to parse Gemini response:", parseError, "\nResponse Text:", responseText);
+         throw new Error("AI response was not valid JSON.");
+       }
+
+       // Update newItem state, converting nulls from JSON if necessary
+       newItem.calories = nutritionData.calories ?? null;
+       newItem.protein = nutritionData.protein ?? null;
+       newItem.fat = nutritionData.fat ?? null;
+       newItem.carbs = nutritionData.carbs ?? null;
+       newItem.fibers = nutritionData.fibers ?? null;
+       newItem.sugar = nutritionData.sugar ?? null;
+       newItem.mufa = nutritionData.mufa ?? null;
+       newItem.pufa = nutritionData.pufa ?? null;
+       newItem.sfa = nutritionData.sfa ?? null;
+       newItem.gl = nutritionData.gl ?? null;
+
+       // Trigger reactivity by reassigning newItem
+       newItem = { ...newItem };
+
+     } catch (err: any) {
+       console.error('Error during Gemini auto-fill:', err);
+       autoFillError = `Failed to auto-fill: ${err.message}`;
+     } finally {
+       isAutoFilling = false;
+     }
+   }
+
+
    // --- Lifecycle ---
    onMount(() => {
      fetchFoodItems();
+     loadApiKey(); // Load API key on component mount
    });
 
   // --- Helper for badge display (similar to log view) ---
@@ -288,11 +422,55 @@
    {#if isCreating}
      <div class="border border-indigo-300 rounded-lg p-4 shadow-sm bg-indigo-50 mb-6">
        <h2 class="text-lg font-semibold mb-3 text-indigo-800">Create New Food Item</h2>
+
+       <!-- API Key Input (conditionally shown) -->
+       {#if showApiKeyInput}
+         <div class="mb-4 p-3 border border-yellow-300 bg-yellow-50 rounded">
+           <label for="gemini-api-key" class="block text-sm font-medium text-yellow-800">Enter Gemini API Key:</label>
+           <div class="mt-1 flex rounded-md shadow-sm">
+             <input
+               type="password"
+               id="gemini-api-key"
+               bind:value={apiKeyInput}
+               class="flex-1 block w-full rounded-none rounded-l-md border-gray-300 px-2 py-1 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+               placeholder="Paste your API key here"
+             />
+             <button
+               type="button"
+               on:click={saveApiKey}
+               class="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-500 hover:bg-gray-100"
+             >
+               Save Key
+             </button>
+           </div>
+           {#if autoFillError && autoFillError.includes('API Key')}
+             <p class="mt-1 text-xs text-red-600">{autoFillError}</p>
+           {/if}
+         </div>
+       {/if}
+
        <!-- Name, Serving Qty, Serving Unit -->
        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
          <div>
            <label for="new-item-name" class="block text-sm font-medium text-gray-700">Name</label>
            <input type="text" id="new-item-name" bind:value={newItem.name} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" required />
+           <!-- Auto-fill Button -->
+           <button
+             type="button"
+             on:click={autoFillNutrition}
+             disabled={isAutoFilling || !newItem.name?.trim()}
+             class="mt-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+           >
+             {#if isAutoFilling}
+               <span>Filling...</span>
+             {:else}
+               <span>Auto-fill Nutrition (AI)</span>
+             {/if}
+           </button>
+           {#if autoFillError && !autoFillError.includes('API Key')}
+             <p class="mt-1 text-xs text-red-600">{autoFillError}</p>
+           {/if}
+           <p class="mt-1 text-xs text-gray-500">Uses Gemini AI. Requires saved API Key.</p>
          </div>
          <div>
            <label for="new-item-qty" class="block text-sm font-medium text-gray-700">Serving Qty</label>
@@ -306,11 +484,15 @@
        <!-- Nutritional Info Inputs -->
        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-3 text-sm">
          {#each ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl'] as prop (prop)}
+           {@const key = prop as keyof FoodItem}
            <div>
              <label for="new-item-{prop}" class="block font-medium text-gray-700 capitalize">{prop}</label>
-             <input type="number" step="any" id="new-item-{prop}" bind:value={newItem[prop as keyof typeof newItem]} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" placeholder="Optional" />
+             <input type="number" step="any" id="new-item-{prop}" bind:value={newItem[key]} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" placeholder="Optional" />
            </div>
          {/each}
+         <div class="col-span-2 md:col-span-5 text-xs text-gray-500">
+            AI-generated data should be verified.
+         </div>
        </div>
        <!-- Comment -->
        <div class="mb-3">

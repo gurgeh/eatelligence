@@ -43,3 +43,54 @@
 
 **Next Steps:**
 *   Proceed with any further requested features or refinements.
+
+---
+
+# Active Context - Gemini Nutrition Auto-fill (April 26, 2025)
+
+**Current Focus:** Implemented Gemini AI-powered auto-completion for nutritional data when creating new food items.
+
+**Decisions Made:**
+*   **LLM:** Gemini 2.5 Pro (specifically `gemini-2.5-pro-preview-03-25`).
+*   **API Call Method:** Direct frontend API call using the `@google/genai` library. Decided against Supabase Edge Function due to cost constraints for this personal project, accepting the security implication of the API key potentially being visible in browser network requests.
+*   **API Key Storage:** User's Gemini API key is stored in the browser's Local Storage.
+*   **Grounding:** Enabled Google Search grounding via the `tools` configuration in the API call.
+*   **Prompting Strategy:**
+    *   Instructed the model to return data strictly as JSON matching a predefined schema.
+    *   Included any pre-filled nutritional data from the form in the prompt to provide context for estimations.
+    *   Instructed the model to generalize searches (e.g., "cheese" instead of "Brand X Swiss Cheese") if specific data is unavailable.
+    *   Instructed the model to estimate any remaining missing values to ensure a complete JSON response.
+
+**Implementation Details (`/food-items/+page.svelte`):**
+*   Installed `@google/genai` dependency.
+*   Added state variables for API key management (`geminiApiKey`, `apiKeyInput`, `showApiKeyInput`), loading state (`isAutoFilling`), and errors (`autoFillError`).
+*   Added UI elements:
+    *   A conditionally visible section to input and save the Gemini API key to Local Storage.
+    *   An "Auto-fill Nutrition (AI)" button below the "Name" input in the "Create New Food Item" form.
+    *   Display for loading state and error messages related to auto-fill.
+    *   A note reminding the user to verify AI-generated data.
+*   Implemented `loadApiKey` function (called onMount) to retrieve the key from Local Storage.
+*   Implemented `saveApiKey` function triggered by the "Save Key" button.
+*   Implemented `autoFillNutrition` async function:
+    *   Checks for food name and API key.
+    *   Initializes `GoogleGenAI` client with the key.
+    *   Gathers existing numerical data from the `newItem` object.
+    *   Constructs the detailed prompt including the item name, JSON schema, instructions for grounding, generalization, estimation, and inclusion of existing data.
+    *   Calls `genAI.models.generateContent` with the correct parameters (`model`, `contents`, `config.tools`).
+    *   Accesses the response text via `result.candidates[0].content.parts[0].text`.
+    *   Includes basic cleanup (`.replace(/```json\n?/, '').replace(/```$/, '')`) and robust `try...catch` for JSON parsing.
+    *   Updates the `newItem` state with the parsed data, triggering form updates.
+    *   Handles errors during the process.
+
+**Troubleshooting:**
+*   Corrected initial TS errors related to `GoogleGenAI` import name and client initialization (`new GoogleGenAI({ apiKey: ... })`).
+*   Corrected API call structure to use `genAI.models.generateContent` and pass parameters correctly (`model`, `contents`, `config.tools`).
+*   Corrected response text access (`result.candidates[0]...`).
+*   Resolved Vite dependency optimization issues after installing `@google/genai` by clearing the `node_modules/.vite` cache (`rm -rf node_modules/.vite`) and restarting the dev server.
+*   Corrected the Gemini model ID from `gemini-2.5-pro-latest` to the specific preview version `gemini-2.5-pro-preview-03-25`.
+*   Added `console.log` for prompt debugging, then removed it once functionality was confirmed.
+*   Initial test failed to use provided data; subsequent test after ensuring page reload worked correctly.
+
+**Next Steps:**
+*   Commit changes.
+*   Proceed with any further requested features or refinements.

@@ -26,13 +26,15 @@
 - [x] Handle deleted food items in log view (Show "(Deleted item)")
 - [x] Add `serving_qty` and `serving_unit` columns to `food_items` table via migration
 - [x] Create view for creating recipes from log entries (`/create-recipe`)
-- [ ] LLM integration for searching/guessing nutrition data for new meals and ingredients
-- [ ] Add DII and Omega-3/6 ratio
-- [ ] Upload the last meal nutrition data to Supabase
+- [x] LLM integration for auto-filling nutrition data (`/food-items`: Added button to call Gemini 2.5 Pro with grounding, using user-provided API key from Local Storage, includes existing data in prompt, parses JSON response to fill form fields)
+- [ ] Add PRAL and Omega-3/6 ratio (DII is not measured enough)
+- [ ] Use LLM to add missing nutrition data (Could potentially leverage the auto-fill function for existing items)
 - [ ] Authentication (Supabase) and decide on separate food items for each user
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)
 - [ ] Remove Cal and GL to make the line shorter
+- [ ] Add nutrition targets or target intervals
+- [ ] LLM integration from recipe name to ingredients
+- [ ] Photo input for recipes
 - [ ] Prettier interface. Maybe logo on desktop
 - [ ] Mean for last 7 days
 - [ ] Maybe voice input
-- [ ] Maybe try photo recognition for new meals
