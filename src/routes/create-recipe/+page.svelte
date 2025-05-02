@@ -1,8 +1,8 @@
 <script lang="ts">
-  // import '../../app.css'; // Remove explicit import, rely on layout
   import { onMount } from 'svelte';
   import { supabase } from '$lib/supabaseClient';
   import type { FoodItem } from '$lib/types'; // Only need FoodItem from shared types
+  import { calculateKcal } from '$lib/utils'; // Import the calculation helper
 
   // Define a local type for the data structure used in this component
   interface RecipeLogEntry {
@@ -35,8 +35,8 @@
           logged_at,
           multiplier,
           food_item_id,
-          food_items ( id, name, serving_qty, serving_unit, calories, protein, fat, carbs, fibers, sugar, mufa, pufa, sfa, gl, omega3, omega6 )
-        `
+          food_items ( id, name, serving_qty, serving_unit, protein, fat, carbs, fibers, sugar, mufa, pufa, sfa, gl, omega3, omega6 )
+        ` // Removed calories from select
         )
         .order('logged_at', { ascending: false })
         .limit(100); // Limit to recent logs
@@ -55,13 +55,18 @@
             if (log.food_items) {
                 if (Array.isArray(log.food_items) && log.food_items.length > 0) {
                     // If it's an array (unexpected), take the first element
-                    relatedItem = log.food_items[0] as FoodItem; 
+                    relatedItem = log.food_items[0] as FoodItem;
                 } else if (!Array.isArray(log.food_items)) {
                      // If it's not an array, assume it's the object
                     relatedItem = log.food_items as FoodItem;
                 }
             }
-            return relatedItem;
+            // Ensure calories is not included when mapping
+            if (relatedItem) {
+                const { calories, ...rest } = relatedItem as any; // Destructure to remove calories if present
+                return rest as FoodItem;
+            }
+            return null;
         })()
       })) || [];
 
@@ -85,22 +90,22 @@
     }
     selectedLogIds = selectedLogIds; // Trigger reactivity
     // Recalculate totals whenever selection changes
-    calculateTotals(); 
+    calculateTotals();
   }
 
   // --- Totals Calculation ---
-  // Define the keys we expect to sum and round
-  const nutrientKeys: (keyof FoodItem)[] = [
-    'calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6' // Added omega3, omega6
+  // Define the keys we expect to sum and round (calories removed)
+  const nutrientKeys: (keyof Omit<FoodItem, 'id' | 'name' | 'serving_unit' | 'serving_qty' | 'comment' | 'created_at'>)[] = [
+    'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6' // Added omega3, omega6
   ];
-  // Initialize totals with all expected keys set to 0
-  let totals: { [K in keyof FoodItem]?: number } & { count: number } = { count: 0 };
+  // Initialize totals with all expected keys set to 0, plus ratio
+  let totals: { [K in typeof nutrientKeys[number]]?: number } & { count: number; ratio?: string } = { count: 0 }; // Add ratio
   nutrientKeys.forEach(key => totals[key] = 0);
 
 
   function calculateTotals() {
     // Initialize newTotals with all expected keys set to 0 for calculation
-    const newTotals: { [K in keyof FoodItem]?: number } & { count: number } = { count: 0 };
+    const newTotals: { [K in typeof nutrientKeys[number]]?: number } & { count: number } = { count: 0 };
      nutrientKeys.forEach(key => newTotals[key] = 0);
     let calculatedCount = 0;
 
@@ -113,8 +118,7 @@
         // Helper to safely add numbers (treat null as 0)
         const add = (a: number | null | undefined, b: number | null | undefined) => (a || 0) + (b || 0);
 
-        // Assign results to newTotals, not totals
-        newTotals.calories = add(newTotals.calories, (item.calories || 0) * multiplier);
+        // Assign results to newTotals, not totals (calories removed)
         newTotals.protein = add(newTotals.protein, (item.protein || 0) * multiplier);
         newTotals.fat = add(newTotals.fat, (item.fat || 0) * multiplier);
         newTotals.carbs = add(newTotals.carbs, (item.carbs || 0) * multiplier);
@@ -130,14 +134,28 @@
     }
     newTotals.count = calculatedCount;
 
-    
+
     // Round the calculated totals for defined keys in newTotals
     for (const key of nutrientKeys) {
         // newTotals[key] is guaranteed to be a number due to initialization and add function
-        newTotals[key] = Math.round(newTotals[key]! * 10) / 10; // Round to 1 decimal place
+        // Round nutrient totals for display (except count)
+        newTotals[key] = Math.round(newTotals[key]!); // Round to nearest integer for display consistency
     }
-    
-    totals = newTotals; // Assign the fully calculated and rounded totals
+
+    // Calculate ratio AFTER summing and before final assignment
+    const totalOmega3 = newTotals.omega3 ?? 0;
+    const totalOmega6 = newTotals.omega6 ?? 0;
+    let calculatedRatio = '-'; // Default ratio
+    if (totalOmega3 > 0) {
+        const omega6Part = (totalOmega6 / totalOmega3).toFixed(1);
+        calculatedRatio = `${omega6Part}:1`;
+    } else if (totalOmega6 > 0) {
+        calculatedRatio = `∞:1`;
+    }
+    // Add ratio to the newTotals object before assigning to totals
+    (newTotals as any).ratio = calculatedRatio; // Cast to any to add the ratio property dynamically
+
+    totals = newTotals; // Assign the fully calculated, rounded, and ratio-included totals
   }
 
 
@@ -157,18 +175,18 @@
         return;
     }
 
-    // Generate comment string
+    // Generate comment string with new format: (qty unit) x multiplier name
     const commentLines = selectedEntries.map(entry =>
-        `${entry.multiplier} x ${entry.food_items?.serving_qty || 1}${entry.food_items?.serving_unit || 'serving'} ${entry.food_items?.name || '(Unknown Item)'}`
+        `(${entry.food_items?.serving_qty || 1} ${entry.food_items?.serving_unit || 'serving'}) x ${entry.multiplier} ${entry.food_items?.name || '(Unknown Item)'}`
     );
     const comment = `Made from:\n- ${commentLines.join('\n- ')}`;
 
-    // Prepare the new food item data using the already calculated totals
+    // Prepare the new food item data using the already calculated totals (calories removed)
     const newFoodItemData: Omit<FoodItem, 'id' | 'created_at'> = {
         name: recipeName.trim(),
         serving_qty: 1, // Recipe is one serving by definition here
         serving_unit: 'recipe serving',
-        calories: totals.calories ?? 0,
+        // calories: totals.calories ?? 0, // Removed calories
         protein: totals.protein ?? 0,
         fat: totals.fat ?? 0,
         carbs: totals.carbs ?? 0,
@@ -223,18 +241,35 @@
     <p class="text-red-500">{errorMessage}</p>
   {:else}
     <!-- Totals Display - Mimic styling from main page summary -->
-    <div class="mb-4 p-4 border rounded bg-gray-100 sticky top-0 z-10">
+    <div class="mb-4 p-3 border rounded bg-gray-100 sticky top-0 z-10"> <!-- Reduced padding -->
       <h2 class="text-lg font-semibold mb-2">Selected Items Summary ({totals.count} items)</h2>
       {#if totals.count > 0}
-        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <!-- Use similar bg/text colors and padding/rounding as main page summary -->
-            <span class="bg-blue-200 text-blue-900 px-1.5 py-0.5 rounded-md font-medium">{totals.calories ?? 0} Cal</span>
-            <span class="bg-green-200 text-green-900 px-1.5 py-0.5 rounded-md font-medium">{totals.protein ?? 0}, {totals.fat ?? 0}, {totals.carbs ?? 0} <span class="text-green-700 text-[0.65rem]">PFC</span></span>
-            <span class="bg-yellow-200 text-yellow-900 px-1.5 py-0.5 rounded-md font-medium">{totals.fibers ?? 0}, {totals.sugar ?? 0} <span class="text-yellow-700 text-[0.65rem]">FiS</span></span>
-            <span class="bg-orange-200 text-orange-900 px-1.5 py-0.5 rounded-md font-medium">{totals.mufa ?? 0}, {totals.pufa ?? 0}, {totals.sfa ?? 0} <span class="text-orange-700 text-[0.65rem]">MPS</span></span>
-            <span class="bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded-md font-medium">{totals.gl ?? 0} GL</span>
-            <span class="bg-teal-200 text-teal-900 px-1.5 py-0.5 rounded-md font-medium">{totals.omega3 ?? 0} O3</span> <!-- Added O3 display -->
-            <span class="bg-cyan-200 text-cyan-900 px-1.5 py-0.5 rounded-md font-medium">{totals.omega6 ?? 0} O6</span> <!-- Added O6 display -->
+        <!-- Use exact structure and classes from main log daily summary -->
+        <div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs"> <!-- Reduced gap-x -->
+            <!-- Calculated Kcal -->
+            <span class="bg-blue-200 text-blue-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px, changed Cal to C -->
+                {calculateKcal(totals)} C
+            </span>
+            <!-- Protein, Fat, Carbs -->
+            <span class="bg-green-200 text-green-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+                {totals.protein ?? 0}, {totals.fat ?? 0}, {totals.carbs ?? 0} <span class="text-green-700 text-[0.65rem]">PFC</span>
+            </span>
+            <!-- Fibers, Sugar -->
+            <span class="bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+                {totals.fibers ?? 0}, {totals.sugar ?? 0} <span class="text-yellow-700 text-[0.65rem]">FiS</span>
+            </span>
+            <!-- MUFA, PUFA, SFA -->
+            <span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+                {totals.mufa ?? 0}, {totals.pufa ?? 0}, {totals.sfa ?? 0} <span class="text-orange-700 text-[0.65rem]">MPS</span>
+            </span>
+            <!-- Omega Ratio -->
+            <span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium" title="Omega-6:Omega-3 Ratio"> <!-- Reduced px -->
+                {totals.ratio ?? '-'} <span class="text-orange-700 text-[0.65rem]">6:3</span>
+            </span>
+            <!-- GL -->
+            <span class="bg-purple-200 text-purple-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+                {totals.gl ?? 0} GL
+            </span>
         </div>
       {:else}
         <p class="text-sm text-gray-500">Select log entries below to see totals.</p>
@@ -261,14 +296,14 @@
             <button
               type="button"
               class="w-full text-left p-3 border rounded cursor-pointer transition-colors block"
-              class:bg-indigo-100={selectedLogIds.has(entry.id)} 
-              class:text-indigo-900={selectedLogIds.has(entry.id)} 
-              class:hover:bg-gray-100={!selectedLogIds.has(entry.id)} 
-              class:bg-white={!selectedLogIds.has(entry.id)} 
+              class:bg-indigo-100={selectedLogIds.has(entry.id)}
+              class:text-indigo-900={selectedLogIds.has(entry.id)}
+              class:hover:bg-gray-100={!selectedLogIds.has(entry.id)}
+              class:bg-white={!selectedLogIds.has(entry.id)}
               on:click={() => toggleSelection(entry.id)}
             >
-              <!-- Display log entry details nicely -->
-              {entry.food_items?.name || '(Deleted Item)'} - {entry.multiplier} x {entry.food_items?.serving_qty || 1}{entry.food_items?.serving_unit || 'serving'}
+              <!-- Display log entry details nicely - New format: (qty unit) x multiplier name -->
+              {entry.food_items?.name || '(Deleted Item)'} - ({entry.food_items?.serving_qty || 1} {entry.food_items?.serving_unit || 'serving'}) x {entry.multiplier}
               <span class="text-xs text-gray-500 block mt-1">Logged: {new Date(entry.logged_at).toLocaleString('sv-SE')}</span>
             </button>
           </li>

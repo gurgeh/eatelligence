@@ -3,12 +3,13 @@
 	import { supabase } from '$lib/supabaseClient'; // Use $lib alias
 	import Fuse from 'fuse.js';
 	import { debounce } from 'lodash-es'; // Using lodash for debouncing search input
+	import { calculateKcal } from '$lib/utils'; // Import the calculation helper
 
 	// Define types for better clarity
 	type FoodItem = {
 		id: number;
 		name: string;
-		calories?: number | null;
+		// calories removed from local type definition
 		protein?: number | null;
 		fat?: number | null;
 		carbs?: number | null;
@@ -20,6 +21,8 @@
 		gl?: number | null;
 		omega3?: number | null; // Added omega3
 		omega6?: number | null; // Added omega6
+		serving_qty?: number | null; // Added serving_qty
+		serving_unit?: string | null; // Added serving_unit
 		comment?: string | null; // Keep comment in case needed later, though not displayed in summary
 	};
 
@@ -270,7 +273,6 @@
           food_items (
             id,
             name,
-            calories,
             protein,
             fat,
             carbs,
@@ -281,7 +283,9 @@
             sfa,
             gl,
             omega3,
-            omega6
+            omega6,
+            serving_qty,
+            serving_unit
           )
         `
 				)
@@ -303,7 +307,7 @@
 								? {
 										id: relatedFoodItem.id,
 										name: relatedFoodItem.name,
-										calories: relatedFoodItem.calories,
+										// calories removed from mapping
 										protein: relatedFoodItem.protein,
 										fat: relatedFoodItem.fat,
 										carbs: relatedFoodItem.carbs,
@@ -314,7 +318,9 @@
 										sfa: relatedFoodItem.sfa,
 										gl: relatedFoodItem.gl,
 										omega3: relatedFoodItem.omega3, // Added omega3
-										omega6: relatedFoodItem.omega6  // Added omega6
+										omega6: relatedFoodItem.omega6,  // Added omega6
+										serving_qty: relatedFoodItem.serving_qty, // Added serving_qty
+										serving_unit: relatedFoodItem.serving_unit // Added serving_unit
 									}
 								: null
 						};
@@ -347,7 +353,6 @@
 	function processLogsForDisplay() {
 		// Define keys for nutrients we want to sum
 		const nutrientKeys = [
-			'calories',
 			'protein',
 			'fat',
 			'carbs',
@@ -420,10 +425,10 @@
 			newDisplayItems.push({
 				type: 'summary',
 				date: dateStr,
-				// Round totals before adding to displayItems
+				// Pass exact summed nutrients to calculateKcal
 				totals: Object.fromEntries(
-					nutrientKeys.map(key => [key, Math.round(groupedLogs[dateStr].totals[key] ?? 0)]) // Use ?? 0 for rounding potentially undefined keys
-				) as DailyTotals, // Use DailyTotals type here
+					nutrientKeys.map(key => [key, groupedLogs[dateStr].totals[key] ?? 0])
+				) as DailyTotals,
 				ratio: groupedLogs[dateStr].totals.ratio // Add the calculated ratio
 			});
 			// Add individual logs for that day (order maintained from recentLogs)
@@ -657,30 +662,30 @@
 								<h3 class="text-base font-semibold text-gray-700">{item.date}</h3> <!-- Reduced size from text-lg -->
 								<!-- Removed "Daily Totals" span -->
 							</div>
-							<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-								<!-- Calories -->
-								<span class="bg-blue-200 text-blue-900 px-1.5 py-0.5 rounded-md font-medium">
-									{item.totals.calories ?? 0} Cal
+							<div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs"> <!-- Reduced gap-x -->
+								<!-- Calculated Kcal -->
+								<span class="bg-blue-200 text-blue-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px, changed Cal to C -->
+									{calculateKcal(item.totals)} C
 								</span>
 								<!-- Protein, Fat, Carbs -->
-								<span class="bg-green-200 text-green-900 px-1.5 py-0.5 rounded-md font-medium">
-									{item.totals.protein ?? 0}, {item.totals.fat ?? 0}, {item.totals.carbs ?? 0} <span class="text-green-700 text-[0.65rem]">PFC</span>
+								<span class="bg-green-200 text-green-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+									{Math.round(item.totals.protein ?? 0)}, {Math.round(item.totals.fat ?? 0)}, {Math.round(item.totals.carbs ?? 0)} <span class="text-green-700 text-[0.65rem]">PFC</span>
 								</span>
 								<!-- Fibers, Sugar -->
-								<span class="bg-yellow-200 text-yellow-900 px-1.5 py-0.5 rounded-md font-medium">
-									{item.totals.fibers ?? 0}, {item.totals.sugar ?? 0} <span class="text-yellow-700 text-[0.65rem]">FiS</span>
+								<span class="bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+									{Math.round(item.totals.fibers ?? 0)}, {Math.round(item.totals.sugar ?? 0)} <span class="text-yellow-700 text-[0.65rem]">FiS</span>
 								</span>
 								<!-- MUFA, PUFA, SFA -->
-								<span class="bg-orange-200 text-orange-900 px-1.5 py-0.5 rounded-md font-medium">
-									{item.totals.mufa ?? 0}, {item.totals.pufa ?? 0}, {item.totals.sfa ?? 0} <span class="text-orange-700 text-[0.65rem]">MPS</span>
+								<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+									{Math.round(item.totals.mufa ?? 0)}, {Math.round(item.totals.pufa ?? 0)}, {Math.round(item.totals.sfa ?? 0)} <span class="text-orange-700 text-[0.65rem]">MPS</span>
 								</span>
 								<!-- Omega Ratio -->
-								<span class="bg-orange-200 text-orange-900 px-1.5 py-0.5 rounded-md font-medium" title="Omega-6:Omega-3 Ratio">
+								<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium" title="Omega-6:Omega-3 Ratio"> <!-- Reduced px -->
 									{item.ratio ?? '-'} <span class="text-orange-700 text-[0.65rem]">6:3</span>
 								</span>
 								<!-- GL -->
-								<span class="bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded-md font-medium">
-									{item.totals.gl ?? 0} GL
+								<span class="bg-purple-200 text-purple-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+									{Math.round(item.totals.gl ?? 0)} GL
 								</span>
 							</div>
 						</li>
@@ -748,6 +753,11 @@
 										on:keydown={(e) => handleSpanKeydown(e, log, 'multiplier')}
 										title="Click to edit multiplier"
 									>
+										{#if log.food_items?.serving_qty && log.food_items?.serving_unit}
+											<span class="text-xs text-gray-500 mr-1">
+												({log.food_items.serving_qty}{log.food_items.serving_unit})
+											</span>
+										{/if}
 										x{log.multiplier}
 									</span>
 								{/if}
@@ -779,29 +789,39 @@
 
 						<!-- Nutritional Summary Row - Styled Badges -->
 						{#if log.food_items}
-						<div class="pl-1 pt-1 mt-1 border-t border-gray-200 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-							<!-- Calories -->
-							<span class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md">
-								{Math.round((log.food_items.calories ?? 0) * log.multiplier)} Cal
+						<div class="pl-1 pt-1 mt-1 border-t border-gray-200 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs"> <!-- Reduced gap-x -->
+							<!-- Calculated Kcal -->
+							<span class="bg-blue-100 text-blue-800 px-1 py-0.5 rounded-md"> <!-- Reduced px, changed Cal to C -->
+								{calculateKcal({
+									protein: (log.food_items.protein ?? 0) * log.multiplier,
+									fat: (log.food_items.fat ?? 0) * log.multiplier,
+									carbs: (log.food_items.carbs ?? 0) * log.multiplier,
+									fibers: (log.food_items.fibers ?? 0) * log.multiplier
+								})} C
 							</span>
 							<!-- Protein, Fat, Carbs -->
-							<span class="bg-green-100 text-green-800 px-1.5 py-0.5 rounded-md">
+							<span class="bg-green-100 text-green-800 px-1 py-0.5 rounded-md"> <!-- Reduced px -->
 								{Math.round((log.food_items.protein ?? 0) * log.multiplier)}, {Math.round((log.food_items.fat ?? 0) * log.multiplier)}, {Math.round((log.food_items.carbs ?? 0) * log.multiplier)} <span class="text-green-600 text-[0.65rem]">PFC</span>
 							</span>
 							<!-- Fibers, Sugar -->
-							<span class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded-md">
+							<span class="bg-yellow-100 text-yellow-800 px-1 py-0.5 rounded-md"> <!-- Reduced px -->
 								{Math.round((log.food_items.fibers ?? 0) * log.multiplier)}, {Math.round((log.food_items.sugar ?? 0) * log.multiplier)} <span class="text-yellow-600 text-[0.65rem]">FiS</span>
 							</span>
 							<!-- MUFA, PUFA, SFA -->
-							<span class="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-md">
+							<span class="bg-orange-100 text-orange-800 px-1 py-0.5 rounded-md"> <!-- Reduced px -->
 								{Math.round((log.food_items.mufa ?? 0) * log.multiplier)}, {Math.round((log.food_items.pufa ?? 0) * log.multiplier)}, {Math.round((log.food_items.sfa ?? 0) * log.multiplier)} <span class="text-orange-600 text-[0.65rem]">MPS</span>
 							</span>
 							<!-- Omega 6:3 -->
-							<span class="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-md">
-								{Math.round((log.food_items.omega6 ?? 0) * log.multiplier)}, {Math.round((log.food_items.omega3 ?? 0) * log.multiplier)} <span class="text-orange-600 text-[0.65rem]">6:3</span>
+							<span class="bg-orange-100 text-orange-800 px-1 py-0.5 rounded-md"> <!-- Reduced px -->
+								{#if Math.round((log.food_items.omega6 ?? 0) * log.multiplier) === 0 && Math.round((log.food_items.omega3 ?? 0) * log.multiplier) === 0}
+									-
+								{:else}
+									{Math.round((log.food_items.omega6 ?? 0) * log.multiplier)}, {Math.round((log.food_items.omega3 ?? 0) * log.multiplier)}
+								{/if}
+								<span class="text-orange-600 text-[0.65rem]">6:3</span>
 							</span>
 							<!-- GL -->
-							<span class="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded-md">
+							<span class="bg-purple-100 text-purple-800 px-1 py-0.5 rounded-md"> <!-- Reduced px -->
 								{Math.round((log.food_items.gl ?? 0) * log.multiplier)} GL
 							</span>
 						</div>

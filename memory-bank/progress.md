@@ -31,19 +31,21 @@
 - [x] Fix icon filenames and regenerate icons from correct source (simple icon without text)
 - [x] Dropdown for quantity type (Implemented in `/food-items` for create and inline edit using `["g", "dl", "pcs", "portion"]`)
 - [x] LLM Auto-fill uses specified serving size (Modified prompt in `/food-items` to request nutrition per user-defined `serving_qty` + `serving_unit`, includes existing data as context for that serving)
-- [ ] Support for quantity conversion from LLM-data
-- [ ] Calculate kcal from protein, fat, and carbs and fibers
-- [ ] Use LLM to add missing nutrition data (Could potentially leverage the auto-fill function for existing items) or just clear DB
-- [ ] Authentication (Supabase) and decide on separate food items for each user (yes)
-- [ ] Host on eatelligence.fendrich.se (GCP bucket)
-- [ ] Remove Cal and GL to make the line shorter
-- [ ] The log should show quantity and unit
-- [ ] Omega-3/6 has the wrong colors in Manage items
-- [ ] Omega 3/6 should show "-" not only in the summary but also in the log
-- [ ] Move create recipe button to top
+- [x] Calculate kcal from protein, fat, and carbs and fibers (using TEF: P=3, C=3.7, Fi=2, F=9) and remove DB column
+- [x] Make the log line shorter (Abbreviated Cal->C, reduced badge padding/gap in `+page.svelte` for both log items and daily summary)
+- [x] The log should show quantity and unit (Updated `+page.svelte` to fetch and display `serving_qty` and `serving_unit` next to the multiplier. Confirmed working for new items, older items lack data.)
+- [x] Fix calorie calculation discrepancy between log items and daily summary (Corrected rounding issues in `+page.svelte`. Both calculations now use exact nutrient values passed to `calculateKcal` for a single rounding step. Also reintroduced `Math.round` for displaying individual nutrient totals in the summary row for neatness.)
+- [x] Omega 3/6 should show "-" not only in the summary but also in the log (Updated individual log item badge logic in `+page.svelte`)
+- [x] Fix Omega-3/6 display in Manage Items (Corrected order and colors in `/food-items/+page.svelte` display badges and create form inputs to match log view: PFC, FiS, MPS, 6:3 (orange), GL. Ensured 0 values are displayed and editable.)
+- [x] (amount unit) should probably be displayed before the x in the log (Changed display order in `+page.svelte`)
 - [ ] Add nutrition targets or target intervals
+- [ ] Check if LLM auto-fill works now (switch back to `gemini-2.5-pro-preview-03-25`)
+- [ ] LLM should be allowed to fill comment with assumed portion size etc
 - [ ] LLM integration from recipe name to ingredients
 - [ ] Allow name+comment in recipe creation
+- [ ] Clear DB
+- [ ] Authentication (Supabase) and decide on separate food items for each user (yes)
+- [ ] Host on eatelligence.fendrich.se (GCP bucket)
 - [ ] Add optional photo input with name for recipes
 - [ ] Prettier interface. Maybe logo on desktop
 - [ ] Mean for last 7 days
