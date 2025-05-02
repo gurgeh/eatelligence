@@ -71,6 +71,7 @@
   // --- New Item Form State ---
   let isCreating = false;
   let newItem: Partial<FoodItem> = {}; // Use Partial for the new item form
+  const servingUnits = ["g", "dl", "pcs", "portion"]; // Define the allowed units
 
   // --- Gemini API State ---
   let geminiApiKey = '';
@@ -321,10 +322,15 @@
 
        let existingDataPrompt = '';
        if (Object.keys(existingData).length > 0) {
-         existingDataPrompt = `\n\nUse the following already known values (per 100g) to help inform your search and estimations:\n${JSON.stringify(existingData)}`;
+         // Add the existing data back into the prompt for context
+         existingDataPrompt = `\n\nUse the following already known values (for the requested ${newItem.serving_qty} ${newItem.serving_unit} serving) to help inform your search and estimations:\n${JSON.stringify(existingData)}`;
        }
 
-       const prompt = `Provide nutritional information per 100g for the food item "${newItem.name.trim()}".
+       // Ensure serving_qty and serving_unit are valid before using them in the prompt
+       const servingQty = newItem.serving_qty ?? 1; // Default to 1 if undefined
+       const servingUnit = newItem.serving_unit?.trim() || 'unit'; // Default to 'unit' if empty/undefined
+
+       const prompt = `Provide nutritional information per ${servingQty} ${servingUnit} for the food item "${newItem.name.trim()}".
 Use web search (grounding) to find the most accurate data.${existingDataPrompt}
 If specific data for fields like MUFA, PUFA, SFA, or GL is not found for the exact name, search for a more general category (e.g., search for "cheese" if "Brand X Swiss Cheese" data is missing).
 Estimate any remaining nutritional values you cannot find through search, using any provided known values as context. Ensure ALL fields in the requested JSON structure are populated with a numerical value (use null only if estimation is impossible after searching).
@@ -484,7 +490,11 @@ ${jsonSchema}`;
          </div>
          <div>
            <label for="new-item-unit" class="block text-sm font-medium text-gray-700">Serving Unit</label>
-           <input type="text" id="new-item-unit" bind:value={newItem.serving_unit} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" required placeholder="e.g., g, ml, portion" />
+           <select id="new-item-unit" bind:value={newItem.serving_unit} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" required>
+             {#each servingUnits as unit}
+               <option value={unit}>{unit}</option>
+             {/each}
+           </select>
          </div>
        </div>
        <!-- Nutritional Info Inputs -->
@@ -551,8 +561,53 @@ ${jsonSchema}`;
                 {item.name}
               </span>
             {/if}
+            <!-- Inline editing for serving_qty and serving_unit -->
             <span class="text-sm text-gray-500 ml-2">
-              ({item.serving_qty} {item.serving_unit})
+              (
+              {#if editingItemId === item.id && editingProperty === 'serving_qty'}
+                <input
+                  type="number"
+                  bind:this={inputElement}
+                  bind:value={editingValue}
+                  on:keydown={handleInputKeydown}
+                  on:blur={saveItemUpdate}
+                  class="w-16 p-0 border border-blue-300 rounded text-xs mx-1"
+                />
+              {:else}
+                <span
+                  class="cursor-pointer hover:bg-yellow-100 px-1"
+                  on:click={() => startEditing(item, 'serving_qty')}
+                  on:keydown={(e) => { if (e.key === 'Enter') startEditing(item, 'serving_qty'); }}
+                  role="button"
+                  tabindex="0"
+                >
+                  {item.serving_qty}
+                </span>
+              {/if}
+              {#if editingItemId === item.id && editingProperty === 'serving_unit'}
+                 <select
+                   bind:value={editingValue}
+                   on:change={saveItemUpdate}
+                   on:keydown={handleInputKeydown}
+                   class="p-0 border border-blue-300 rounded text-xs mx-1"
+                   autofocus
+                 >
+                   {#each servingUnits as unit}
+                     <option value={unit}>{unit}</option>
+                   {/each}
+                 </select>
+              {:else}
+                <span
+                  class="cursor-pointer hover:bg-yellow-100 px-1"
+                  on:click={() => startEditing(item, 'serving_unit')}
+                  on:keydown={(e) => { if (e.key === 'Enter') startEditing(item, 'serving_unit'); }}
+                  role="button"
+                  tabindex="0"
+                >
+                  {item.serving_unit}
+                </span>
+              {/if}
+              )
             </span>
              {#if editingItemId === item.id && editingProperty === 'comment'}
                <textarea

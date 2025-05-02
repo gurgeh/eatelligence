@@ -28,14 +28,18 @@
 - [x] Create view for creating recipes from log entries (`/create-recipe`)
 - [x] LLM integration for auto-filling nutrition data (`/food-items`: Added button to call Gemini 2.5 Pro with grounding, using user-provided API key from Local Storage, includes existing data in prompt, parses JSON response to fill form fields)
 - [x] Add Omega-3/6 ratio (Added DB columns, updated types, food item management, recipe creation, log view calculations & display. Daily ratio shown as O6:O3, individual log items show O6, O3 grouped with fats before GL.)
-- [ ] Switch small icons to those without text
-- [ ] Dropdown for quantity type
+- [x] Fix icon filenames and regenerate icons from correct source (simple icon without text)
+- [x] Dropdown for quantity type (Implemented in `/food-items` for create and inline edit using `["g", "dl", "pcs", "portion"]`)
+- [x] LLM Auto-fill uses specified serving size (Modified prompt in `/food-items` to request nutrition per user-defined `serving_qty` + `serving_unit`, includes existing data as context for that serving)
 - [ ] Support for quantity conversion from LLM-data
 - [ ] Calculate kcal from protein, fat, and carbs and fibers
 - [ ] Use LLM to add missing nutrition data (Could potentially leverage the auto-fill function for existing items) or just clear DB
 - [ ] Authentication (Supabase) and decide on separate food items for each user (yes)
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)
 - [ ] Remove Cal and GL to make the line shorter
+- [ ] The log should show quantity and unit
+- [ ] Omega-3/6 has the wrong colors in Manage items
+- [ ] Omega 3/6 should show "-" not only in the summary but also in the log
 - [ ] Move create recipe button to top
 - [ ] Add nutrition targets or target intervals
 - [ ] LLM integration from recipe name to ingredients
