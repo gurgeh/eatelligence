@@ -5,7 +5,6 @@ export interface FoodItem {
   name: string;
   serving_unit: string; // e.g., '100g', '1 dl', '1 portion'
   serving_qty: number; // e.g., 100, 1, 1
-  calories: number | null;
   protein: number | null;
   fat: number | null;
   carbs: number | null;
@@ -30,4 +29,13 @@ export interface FoodLog {
     multiplier: number;
     created_at: string;
     food_items: FoodItem; // For joined data
+}
+
+// Represents a nutrition target definition
+export interface NutritionTarget {
+	id: string; // uuid from Supabase
+	nutrient_1: string; // The primary nutrient (e.g., 'protein', 'fat', 'omega6')
+	nutrient_2: string | null; // The denominator nutrient for relative targets (e.g., 'calories', 'omega3'), null for absolute
+	min_value: number | null; // Minimum target value (g/kcal or %)
+	max_value: number | null; // Maximum target value (g/kcal or %)
 }

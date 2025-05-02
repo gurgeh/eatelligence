@@ -39,7 +39,7 @@
 - [x] Fix Omega-3/6 display in Manage Items (Corrected order and colors in `/food-items/+page.svelte` display badges and create form inputs to match log view: PFC, FiS, MPS, 6:3 (orange), GL. Ensured 0 values are displayed and editable.)
 - [x] (amount unit) should probably be displayed before the x in the log (Changed display order in `+page.svelte`)
 - [ ] Add nutrition targets or target intervals
-- [ ] Check if LLM auto-fill works now (switch back to `gemini-2.5-pro-preview-03-25`)
+- [ ] Check if LLM auto-fill works now (log prompt. switch back to `gemini-2.5-pro-preview-03-25`)
 - [ ] LLM should be allowed to fill comment with assumed portion size etc
 - [ ] LLM integration from recipe name to ingredients
 - [ ] Allow name+comment in recipe creation

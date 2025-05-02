@@ -12,10 +12,9 @@ Tailwind CSS was chosen for its utility-first approach, enabling rapid developme
 
 ## Svelte Development Notes / Pitfalls
 
-*   **Svelte Comment Placement (`{/* ... */}`):** Be extremely cautious when using Svelte comments within the template (`<script>` and `<style>` sections are generally fine). Placing them directly inside or immediately adjacent to HTML tags, or within complex logic blocks (`{#if}`, `{#each}`), can lead to misleading "Unexpected token" parsing errors. The parser may report the error on a nearby line, causing confusion.
-    *   **Best Practice:** Place Svelte comments on their own separate lines, well away from HTML tags and logic blocks. For comments within the HTML structure itself, prefer standard HTML comments (`<!-- -->`), which are generally safer for the parser in that context.
-    *   *(Learned during inline editing implementation in `+page.svelte`, April 20, 2025)*
+*   **Svelte Comment Placement (`{/* ... */}`):** Be extremely cautious when using Svelte or HTML comments within the template (`<script>` and `<style>` sections are generally fine). Placing them directly inside or immediately adjacent to HTML tags, or within complex logic blocks (`{#if}`, `{#each}`), can lead to misleading "Unexpected token" parsing errors. The parser may report the error on a nearby line, causing confusion.
+    *   **Best Practice:** Place Svelte comments on their own separate lines, well away from HTML tags and logic blocks.
 
 **EVEN WITH THE ABOVE NOTE, THE LLM KEEPS PLACING SVELTE COMMENTS AND THEN CATCHING ITSELF. NO COMMENTS IN SVELTE!**
 
-*   **Parser Error Debugging:** If the Svelte parser reports an "Unexpected token" or similar error, **the first step should always be to check for recently added or modified Svelte comments (`{/* ... */}`) in the template section.** These are a common source of misleading parser errors. Only after confirming comments are correctly placed should other potential syntax issues be investigated.
+*   **Parser Error Debugging:** If the Svelte parser reports an "Unexpected token" or similar error, **the first step should always be to check for recently added or modified Svelte comments (`{/* ... */}`) or HTML comments in the template section.** These are a common source of misleading parser errors. Only after confirming comments are correctly placed should other potential syntax issues be investigated.

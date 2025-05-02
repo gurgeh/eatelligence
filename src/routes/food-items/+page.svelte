@@ -5,6 +5,7 @@
   import { tick } from 'svelte';
   import type { FoodItem } from '$lib/types'; // Import the type
   import { GoogleGenAI } from '@google/genai'; // <-- Correct Gemini import name
+  import { calculateKcal } from '$lib/utils'; // Import the calculation helper
 
   let foodItems: FoodItem[] = [];
   let filteredItems: FoodItem[] = [];
@@ -106,7 +107,8 @@
 
     // Basic validation/conversion (expand as needed)
     let updateValue: any = editingValue;
-    const numericFields: (keyof FoodItem)[] = ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl'];
+    // Removed 'calories' from this list as it's now calculated
+    const numericFields: (keyof FoodItem)[] = ['protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6']; // Added omega3, omega6
     if (numericFields.includes(editingProperty)) {
       updateValue = parseFloat(editingValue as string);
       if (isNaN(updateValue)) {
@@ -180,14 +182,15 @@
    function showCreateForm() {
      cancelEdit(); // Cancel any ongoing edit
       isCreating = true;
-      newItem = { // Reset form fields
-        name: '',
-        serving_unit: 'g', // Default serving unit for 100 qty
-        serving_qty: 100,
-        calories: null, protein: null, fat: null, carbs: null, fibers: null, sugar: null,
-        mufa: null, pufa: null, sfa: null, gl: null, omega3: null, omega6: null, comment: null // Added omega3, omega6
-     };
-     // Optionally focus the first input field after tick
+       newItem = { // Reset form fields
+         name: '',
+         serving_unit: 'g', // Default serving unit for 100 qty
+         serving_qty: 100,
+         // calories removed - will be calculated
+         protein: null, fat: null, carbs: null, fibers: null, sugar: null,
+         mufa: null, pufa: null, sfa: null, gl: null, omega3: null, omega6: null, comment: null // Added omega3, omega6
+      };
+      // Optionally focus the first input field after tick
      tick().then(() => {
         const nameInput = document.getElementById('new-item-name');
         nameInput?.focus();
@@ -217,11 +220,11 @@
      // Prepare data for Supabase (convert nulls if needed, ensure correct types)
      const itemToInsert = {
         name: newItem.name.trim(),
-        serving_unit: newItem.serving_unit.trim(),
-        serving_qty: newItem.serving_qty,
-        calories: newItem.calories ?? null,
-        protein: newItem.protein ?? null,
-        fat: newItem.fat ?? null,
+         serving_unit: newItem.serving_unit.trim(),
+         serving_qty: newItem.serving_qty,
+         // calories removed - will be calculated
+         protein: newItem.protein ?? null,
+         fat: newItem.fat ?? null,
         carbs: newItem.carbs ?? null,
         fibers: newItem.fibers ?? null,
         sugar: newItem.sugar ?? null,
@@ -294,9 +297,8 @@
         const genAI = new GoogleGenAI({ apiKey: geminiApiKey });
         // Remove incorrect getGenerativeModel call
 
-        // Define the desired JSON structure and prompt
+        // Define the desired JSON structure and prompt (calories removed)
        const jsonSchema = `{
-         "calories": number | null,
          "protein": number | null,
          "fat": number | null,
          "carbs": number | null,
@@ -306,13 +308,13 @@
          "pufa": number | null,
          "sfa": number | null,
          "gl": number | null,
-         "omega3": number | null, // Added omega3
-         "omega6": number | null  // Added omega6
+         "omega3": number | null, 
+         "omega6": number | null
        }`;
 
-       // Gather existing data from the form
+       // Gather existing data from the form (calories removed from fields)
        const existingData: { [key: string]: number } = {};
-       const fields: (keyof FoodItem)[] = ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6']; // Added omega3, omega6
+       const fields: (keyof FoodItem)[] = ['protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6']; // Added omega3, omega6
        fields.forEach(field => {
          const value = newItem[field];
          if (typeof value === 'number' && !isNaN(value)) {
@@ -330,8 +332,10 @@
        const servingQty = newItem.serving_qty ?? 1; // Default to 1 if undefined
        const servingUnit = newItem.serving_unit?.trim() || 'unit'; // Default to 'unit' if empty/undefined
 
+       // Updated prompt: Removed calories, clarified carbs meaning
        const prompt = `Provide nutritional information per ${servingQty} ${servingUnit} for the food item "${newItem.name.trim()}".
 Use web search (grounding) to find the most accurate data.${existingDataPrompt}
+IMPORTANT: For the 'carbs' field, provide the value for TOTAL carbohydrates (including fiber).
 If specific data for fields like MUFA, PUFA, SFA, or GL is not found for the exact name, search for a more general category (e.g., search for "cheese" if "Brand X Swiss Cheese" data is missing).
 Estimate any remaining nutritional values you cannot find through search, using any provided known values as context. Ensure ALL fields in the requested JSON structure are populated with a numerical value (use null only if estimation is impossible after searching).
 Return the result ONLY as a valid JSON object matching this structure, with no surrounding text or explanations:
@@ -339,10 +343,13 @@ ${jsonSchema}`;
 
        // Correct API call using 'config' for tools, access text via candidates
        const result = await genAI.models.generateContent({
-         model: "gemini-2.5-pro-preview-03-25", // <-- Use specific preview model ID
+         model: "gemini-2.5-flash-preview-04-17", // <-- Use specific preview model ID
          contents: [{ role: "user", parts: [{ text: prompt }] }],
          config: { // <-- Use 'config' based on user example
            tools: [{ googleSearch: {} }], // Enable grounding tool
+           thinkingConfig: {
+             includeThoughts: false,
+           },
          },
        });
 
@@ -353,19 +360,32 @@ ${jsonSchema}`;
          throw new Error("AI response did not contain text.");
        }
 
-       // Attempt to parse the JSON response (add robust extraction if needed)
+       // Log the raw response for debugging
+       console.log('Raw Gemini Response:', responseText); 
+
+       // Attempt to parse the JSON response (Robust extraction added)
        let nutritionData: Partial<FoodItem>;
+       let match: RegExpMatchArray | null = null; // Declare match outside the try block
        try {
-         // Basic cleanup: remove potential markdown code fences
-         const cleanedText = responseText.replace(/```json\n?/, '').replace(/```$/, '');
-         nutritionData = JSON.parse(cleanedText);
+         // Revised Regex: Find the last potential JSON object (greedy match)
+         const jsonRegex = /.*(\{[\s\S]*\})/s; // 's' flag allows '.' to match newlines
+         match = responseText.match(jsonRegex); // Assign inside the try block
+
+         if (!match || !match[1]) {
+           console.error("Could not find JSON object using regex in response:", responseText);
+           throw new Error("AI response did not contain a recognizable JSON object structure.");
+         }
+
+         const jsonString = match[1];
+         nutritionData = JSON.parse(jsonString);
+
        } catch (parseError) {
-         console.error("Failed to parse Gemini response:", parseError, "\nResponse Text:", responseText);
-         throw new Error("AI response was not valid JSON.");
+         console.error("Failed to parse extracted JSON:", parseError, "\nExtracted Text:", match ? match[1] : 'N/A', "\nOriginal Response Text:", responseText);
+         // Keep the original error message but provide more context
+         throw new Error("AI response contained JSON, but it was invalid or couldn't be extracted correctly.");
        }
 
-       // Update newItem state, converting nulls from JSON if necessary
-       newItem.calories = nutritionData.calories ?? null;
+       // Update newItem state, converting nulls from JSON if necessary (calories removed)
        newItem.protein = nutritionData.protein ?? null;
        newItem.fat = nutritionData.fat ?? null;
        newItem.carbs = nutritionData.carbs ?? null;
@@ -499,7 +519,8 @@ ${jsonSchema}`;
        </div>
        <!-- Nutritional Info Inputs -->
        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-3 text-sm"> <!-- Adjusted grid cols -->
-         {#each ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6'] as prop (prop)} <!-- Added omega3, omega6 -->
+         <!-- Reordered to match display: PFC, FiS, MPS, 6:3, GL -->
+         {#each ['protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'omega6', 'omega3', 'gl'] as prop (prop)}
            {@const key = prop as keyof FoodItem}
            <div>
              <label for="new-item-{prop}" class="block font-medium text-gray-700 capitalize">{prop === 'omega3' ? 'Omega-3' : prop === 'omega6' ? 'Omega-6' : prop}</label> <!-- Special labels for omega -->
@@ -590,7 +611,7 @@ ${jsonSchema}`;
                    on:change={saveItemUpdate}
                    on:keydown={handleInputKeydown}
                    class="p-0 border border-blue-300 rounded text-xs mx-1"
-                   autofocus
+                   
                  >
                    {#each servingUnits as unit}
                      <option value={unit}>{unit}</option>
@@ -643,48 +664,71 @@ ${jsonSchema}`;
           </div>
         </div>
 
-        <!-- Nutritional Info Badges (Inline Editable) -->
+        <!-- Nutritional Info Badges (Inline Editable) - Reordered & Styled -->
         <div class="flex flex-wrap gap-2 text-xs">
-          {#each ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6'] as prop (prop)} <!-- Added omega3, omega6 -->
-            {@const colors = {
-              calories: 'bg-blue-100 text-blue-800',
-              protein: 'bg-green-100 text-green-800',
-              fat: 'bg-green-100 text-green-800',
-              carbs: 'bg-green-100 text-green-800',
-              fibers: 'bg-yellow-100 text-yellow-800',
-              sugar: 'bg-yellow-100 text-yellow-800',
-              mufa: 'bg-orange-100 text-orange-800',
-              pufa: 'bg-orange-100 text-orange-800',
-              sfa: 'bg-orange-100 text-orange-800',
-              gl: 'bg-purple-100 text-purple-800',
-              omega3: 'bg-teal-100 text-teal-800', // Added omega3 color
-              omega6: 'bg-cyan-100 text-cyan-800', // Added omega6 color
-            }}
-            <div class="{colors[prop as keyof typeof colors] || 'bg-gray-100 text-gray-800'} px-1.5 py-0.5 rounded-md">
-              <span class="font-medium uppercase text-gray-500">{prop === 'omega3' ? 'O3' : prop === 'omega6' ? 'O6' : prop.slice(0,3)}:</span> <!-- Special labels for omega -->
+          <!-- Calculated Kcal -->
+          <div class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md">
+            <span class="font-medium uppercase text-gray-500">KCAL:</span>
+            <span class="ml-1">{calculateKcal(item)}</span>
+          </div>
+          <!-- Protein, Fat, Carbs (PFC) -->
+          <div class="bg-green-100 text-green-800 px-1.5 py-0.5 rounded-md">
+            <span class="font-medium uppercase text-gray-500">PFC:</span>
+            {#each ['protein', 'fat', 'carbs'] as prop}
               {#if editingItemId === item.id && editingProperty === prop}
-                <input
-                  type="number"
-                  step="any"
-                  bind:this={inputElement}
-                  bind:value={editingValue}
-                  on:keydown={handleInputKeydown}
-                  on:blur={saveItemUpdate}
-                  class="w-16 p-0 border border-blue-300 rounded text-xs ml-1"
-                />
+                <input type="number" step="any" bind:this={inputElement} bind:value={editingValue} on:keydown={handleInputKeydown} on:blur={saveItemUpdate} class="w-12 p-0 border border-blue-300 rounded text-xs ml-1" />
               {:else}
-                <span
-                  class="ml-1 cursor-pointer hover:bg-yellow-100 px-1"
-                  on:click={() => startEditing(item, prop as keyof FoodItem)}
-                  on:keydown={(e) => { if (e.key === 'Enter') startEditing(item, prop as keyof FoodItem); }}
-                  role="button"
-                   tabindex="0"
-                 >
-                   {formatValue(item[prop as keyof FoodItem] as number | null)}
-                 </span>
-               {/if}
-            </div>
-          {/each}
+                <span class="ml-1 cursor-pointer hover:bg-yellow-100 px-1" on:click={() => startEditing(item, prop as keyof FoodItem)} on:keydown={(e) => { if (e.key === 'Enter') startEditing(item, prop as keyof FoodItem); }} role="button" tabindex="0">{formatValue(item[prop as keyof FoodItem] as number | null)}</span>
+              {/if}
+              {#if prop !== 'carbs'},{/if} <!-- Add comma separator -->
+            {/each}
+          </div>
+          <!-- Fibers, Sugar (FiS) -->
+          <div class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded-md">
+            <span class="font-medium uppercase text-gray-500">FiS:</span>
+            {#each ['fibers', 'sugar'] as prop}
+              {#if editingItemId === item.id && editingProperty === prop}
+                <input type="number" step="any" bind:this={inputElement} bind:value={editingValue} on:keydown={handleInputKeydown} on:blur={saveItemUpdate} class="w-12 p-0 border border-blue-300 rounded text-xs ml-1" />
+              {:else}
+                <span class="ml-1 cursor-pointer hover:bg-yellow-100 px-1" on:click={() => startEditing(item, prop as keyof FoodItem)} on:keydown={(e) => { if (e.key === 'Enter') startEditing(item, prop as keyof FoodItem); }} role="button" tabindex="0">{formatValue(item[prop as keyof FoodItem] as number | null)}</span>
+              {/if}
+              {#if prop !== 'sugar'},{/if} <!-- Add comma separator -->
+            {/each}
+          </div>
+          <!-- MUFA, PUFA, SFA (MPS) -->
+          <div class="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-md">
+            <span class="font-medium uppercase text-gray-500">MPS:</span>
+            {#each ['mufa', 'pufa', 'sfa'] as prop}
+              {#if editingItemId === item.id && editingProperty === prop}
+                <input type="number" step="any" bind:this={inputElement} bind:value={editingValue} on:keydown={handleInputKeydown} on:blur={saveItemUpdate} class="w-12 p-0 border border-blue-300 rounded text-xs ml-1" />
+              {:else}
+                <span class="ml-1 cursor-pointer hover:bg-yellow-100 px-1" on:click={() => startEditing(item, prop as keyof FoodItem)} on:keydown={(e) => { if (e.key === 'Enter') startEditing(item, prop as keyof FoodItem); }} role="button" tabindex="0">{formatValue(item[prop as keyof FoodItem] as number | null)}</span>
+              {/if}
+              {#if prop !== 'sfa'},{/if} <!-- Add comma separator -->
+            {/each}
+          </div>
+          <!-- Omega 6, Omega 3 (6:3) -->
+          <div class="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-md">
+            <span class="font-medium uppercase text-gray-500">6:3:</span>
+            <!-- Removed outer #if to always show editable values -->
+            {#each ['omega6', 'omega3'] as prop}
+              {#if editingItemId === item.id && editingProperty === prop}
+                <input type="number" step="any" bind:this={inputElement} bind:value={editingValue} on:keydown={handleInputKeydown} on:blur={saveItemUpdate} class="w-12 p-0 border border-blue-300 rounded text-xs ml-1" />
+              {:else}
+                <span class="ml-1 cursor-pointer hover:bg-yellow-100 px-1" on:click={() => startEditing(item, prop as keyof FoodItem)} on:keydown={(e) => { if (e.key === 'Enter') startEditing(item, prop as keyof FoodItem); }} role="button" tabindex="0">{formatValue(item[prop as keyof FoodItem] as number | null)}</span>
+              {/if}
+              {#if prop !== 'omega3'},{/if} <!-- Add comma separator -->
+            {/each}
+          </div>
+          <!-- GL -->
+          <div class="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded-md">
+            <span class="font-medium uppercase text-gray-500">GL:</span>
+            {#if editingItemId === item.id && editingProperty === 'gl'}
+              <input type="number" step="any" bind:this={inputElement} bind:value={editingValue} on:keydown={handleInputKeydown} on:blur={saveItemUpdate} class="w-12 p-0 border border-blue-300 rounded text-xs ml-1" />
+            {:else}
+              <span class="ml-1 cursor-pointer hover:bg-yellow-100 px-1" on:click={() => startEditing(item, 'gl')} on:keydown={(e) => { if (e.key === 'Enter') startEditing(item, 'gl'); }} role="button" tabindex="0">{formatValue(item.gl)}</span>
+            {/if}
+          </div>
         </div>
       </li>
     {/each}

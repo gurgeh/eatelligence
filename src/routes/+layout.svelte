@@ -10,6 +10,7 @@
 		<div class="space-x-4">
 			<a href="/" class="text-gray-700 hover:text-indigo-600">Log Meal</a>
 			<a href="/food-items" class="text-gray-700 hover:text-indigo-600">Manage Items</a>
+			<a href="/settings/targets" class="text-gray-700 hover:text-indigo-600">Targets</a>
 			<!-- Add other links here later if needed -->
 		</div>
 	</nav>

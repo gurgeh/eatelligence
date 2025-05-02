@@ -1,0 +1,97 @@
+// src/lib/utils.ts
+import type { FoodItem } from './types';
+
+/**
+ * Calculates the estimated kilocalories for a food item based on macronutrients,
+ * applying Thermic Effect of Food (TEF) adjusted values.
+ * Treats null nutrient values as 0.
+ *
+ * Formula:
+ * kcal = (protein * 3) + ((carbs - fibers) * 3.7) + (fibers * 2) + (fat * 9)
+ *
+ * @param item - An object containing nutrient values (can be Partial<FoodItem> or similar).
+ * @returns The calculated kcal value, rounded to the nearest whole number. Returns 0 if essential values are missing/invalid.
+ */
+export function calculateKcal(item: {
+  protein?: number | null; // Make optional
+  fat?: number | null;     // Make optional
+  carbs?: number | null;   // Make optional
+  fibers?: number | null;  // Make optional
+}): number {
+  const protein = item.protein ?? 0;
+  const fat = item.fat ?? 0;
+  const carbs = item.carbs ?? 0;
+  const fibers = item.fibers ?? 0;
+
+  // Ensure digestible carbs are not negative if fibers > carbs (potential data error)
+  const digestibleCarbs = Math.max(0, carbs - fibers);
+
+  // Basic check if we have enough data to calculate
+  if (protein === 0 && fat === 0 && carbs === 0 && fibers === 0) {
+    return 0;
+  }
+
+  const kcal = protein * 3 + digestibleCarbs * 3.7 + fibers * 2 + fat * 9;
+
+  return Math.round(kcal);
+}
+
+/**
+ * Formats a date string or Date object into 'YYYY-MM-DD HH:mm' format using the local timezone.
+ * @param dateInput - The date string or Date object.
+ * @returns The formatted date string, or an empty string if input is invalid.
+ */
+export function formatLocalDateTime(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) return '';
+  try {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    if (isNaN(date.getTime())) return ''; // Invalid date check
+
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return '';
+  }
+}
+
+/**
+* Formats a date string or Date object for display, showing 'Today', 'Yesterday', or 'YYYY-MM-DD'.
+* @param dateInput - The date string or Date object.
+* @returns The formatted display string.
+*/
+export function formatDisplayDate(dateInput: string | Date | null | undefined): string {
+    if (!dateInput) return '';
+    try {
+        const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+        if (isNaN(date.getTime())) return ''; // Invalid date check
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Normalize today to midnight
+
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1); // Normalize yesterday to midnight
+
+        const inputDateOnly = new Date(date);
+        inputDateOnly.setHours(0, 0, 0, 0); // Normalize input date to midnight
+
+        if (inputDateOnly.getTime() === today.getTime()) {
+            return 'Today';
+        } else if (inputDateOnly.getTime() === yesterday.getTime()) {
+            return 'Yesterday';
+        } else {
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+    } catch (error) {
+        console.error("Error formatting display date:", error);
+        return '';
+    }
+}

@@ -4,6 +4,8 @@
 	import Fuse from 'fuse.js';
 	import { debounce } from 'lodash-es'; // Using lodash for debouncing search input
 	import { calculateKcal } from '$lib/utils'; // Import the calculation helper
+	import TargetDetailsModal from '$lib/components/TargetDetailsModal.svelte'; // Import the modal
+	import type { NutritionTarget } from '$lib/types'; // Import target type
 
 	// Define types for better clarity
 	type FoodItem = {
@@ -26,6 +28,23 @@
 		comment?: string | null; // Keep comment in case needed later, though not displayed in summary
 	};
 
+	// Define a type for the raw nutrient totals used in summaries and modal
+	type NutrientTotals = {
+		protein?: number;
+		fat?: number;
+		carbs?: number;
+		fibers?: number;
+		sugar?: number;
+		mufa?: number;
+		pufa?: number;
+		sfa?: number;
+		gl?: number;
+		omega3?: number;
+		omega6?: number;
+		// Note: calories are calculated dynamically
+	};
+
+
 	type FoodLog = {
 		id: number;
 		logged_at: string;
@@ -41,7 +60,7 @@
 	type SummaryItem = {
 		type: 'summary';
 		date: string;
-		totals: Partial<FoodItem>;
+		totals: NutrientTotals; // Use the specific NutrientTotals type
 		ratio?: string; // Add optional ratio string
 	};
 
@@ -51,6 +70,28 @@
 	)[] = []; // Combined array for display
 	let allFoodItems: FoodItem[] = []; // Store all items for Fuse.js
 	let fuse: Fuse<FoodItem> | null = null; // Fuse instance
+
+	// --- Target Modal State ---
+	let nutritionTargets: NutritionTarget[] = [];
+	let isModalOpen = false;
+	let selectedDailyTotals: NutrientTotals = {};
+	let selectedDateString = '';
+	let loadingTargets = true;
+	let targetError: string | null = null;
+
+	// --- Target Modal Functions ---
+	function openTargetModal(date: string, totals: NutrientTotals) {
+		selectedDateString = date;
+		selectedDailyTotals = totals;
+		isModalOpen = true;
+	}
+
+	function closeTargetModal() {
+		isModalOpen = false;
+		// Optionally clear selected data
+		// selectedDateString = '';
+		// selectedDailyTotals = {};
+	}
 
 	let loadingLogs = true;
 	let loadingFoodItems = true;
@@ -246,6 +287,26 @@
 
 	// --- Data Fetching ---
 
+	async function fetchNutritionTargets() {
+		loadingTargets = true;
+		targetError = null;
+		try {
+			const { data, error } = await supabase
+				.from('nutrition_targets')
+				.select('*');
+
+			if (error) throw error;
+			nutritionTargets = data || [];
+		} catch (err: any) {
+			console.error('Error fetching nutrition targets:', err);
+			targetError = `Failed to load targets: ${err.message}`;
+			nutritionTargets = []; // Ensure empty array on error
+		} finally {
+			loadingTargets = false;
+		}
+	}
+
+
 	async function fetchRecentLogs(loadMore = false) {
 		if (loadMore) {
 			loadingMore = true;
@@ -366,11 +427,9 @@
 			'omega6'  // Added omega6
 		] as const; // Use 'as const' for stricter typing of keys
 
-		// Define a type for the totals accumulator, including ratio
-		type DailyTotals = { [K in typeof nutrientKeys[number]]?: number } & { ratio?: string };
-
+		// Use the NutrientTotals type defined earlier for clarity
 		const groupedLogs: {
-			[date: string]: { logs: FoodLog[]; totals: DailyTotals };
+			[date: string]: { logs: FoodLog[]; totals: NutrientTotals & { ratio?: string } }; // Combine for internal use
 		} = {};
 
 	// Group logs by date and calculate totals
@@ -421,14 +480,15 @@
 		const sortedDates = Object.keys(groupedLogs).sort((a, b) => b.localeCompare(a));
 
 		for (const dateStr of sortedDates) {
+			// Extract the nutrient totals matching the NutrientTotals type
+			const summaryTotals: NutrientTotals = Object.fromEntries(
+				nutrientKeys.map(key => [key, groupedLogs[dateStr].totals[key] ?? 0])
+			);
 			// Add summary row first
 			newDisplayItems.push({
 				type: 'summary',
 				date: dateStr,
-				// Pass exact summed nutrients to calculateKcal
-				totals: Object.fromEntries(
-					nutrientKeys.map(key => [key, groupedLogs[dateStr].totals[key] ?? 0])
-				) as DailyTotals,
+				totals: summaryTotals, // Use the correctly typed object
 				ratio: groupedLogs[dateStr].totals.ratio // Add the calculated ratio
 			});
 			// Add individual logs for that day (order maintained from recentLogs)
@@ -484,6 +544,7 @@
 		// Fetch logs first, then process
 		await fetchRecentLogs(); // Already calls processLogsForDisplay on success
 		await fetchAllFoodItems();
+		await fetchNutritionTargets(); // Add this call
 	});
 
 	// Re-process logs if recentLogs array changes (e.g., after add/delete/update)
@@ -656,38 +717,46 @@
 			<ul class="space-y-2">
 				{#each displayItems as item (item.type === 'log' ? item.data.id : item.date)}
 					{#if item.type === 'summary'}
-						<!-- Daily Summary Divider -->
-						<li class="pt-4 pb-1 border-b-2 border-gray-300">
-							<div class="flex justify-between items-baseline mb-1">
-								<h3 class="text-base font-semibold text-gray-700">{item.date}</h3> <!-- Reduced size from text-lg -->
-								<!-- Removed "Daily Totals" span -->
+						<!-- Daily Summary Divider - Made clickable via button -->
+						<li class="border-b-2 border-gray-300"> <!-- Structural border only -->
+							<button
+								type="button"
+								class="w-full text-left block pt-4 pb-1 hover:bg-gray-100 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+								on:click={() => openTargetModal(item.date, item.totals)}
+								on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') openTargetModal(item.date, item.totals); }}
+								title="Click to view target details for {item.date}"
+							>
+								<div class="flex justify-between items-baseline mb-1">
+									<h3 class="text-base font-semibold text-gray-700">{item.date}</h3> <!-- Reduced size from text-lg -->
+									<!-- Removed "Daily Totals" span -->
 							</div>
 							<div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs"> <!-- Reduced gap-x -->
 								<!-- Calculated Kcal -->
-								<span class="bg-blue-200 text-blue-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px, changed Cal to C -->
+								<span class="bg-blue-200 text-blue-900 px-1 py-0.5 rounded-md font-medium pointer-events-none"> <!-- Reduced px, changed Cal to C -->
 									{calculateKcal(item.totals)} C
 								</span>
 								<!-- Protein, Fat, Carbs -->
-								<span class="bg-green-200 text-green-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+								<span class="bg-green-200 text-green-900 px-1 py-0.5 rounded-md font-medium pointer-events-none"> <!-- Reduced px -->
 									{Math.round(item.totals.protein ?? 0)}, {Math.round(item.totals.fat ?? 0)}, {Math.round(item.totals.carbs ?? 0)} <span class="text-green-700 text-[0.65rem]">PFC</span>
 								</span>
 								<!-- Fibers, Sugar -->
-								<span class="bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+								<span class="bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded-md font-medium pointer-events-none"> <!-- Reduced px -->
 									{Math.round(item.totals.fibers ?? 0)}, {Math.round(item.totals.sugar ?? 0)} <span class="text-yellow-700 text-[0.65rem]">FiS</span>
 								</span>
 								<!-- MUFA, PUFA, SFA -->
-								<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+								<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium pointer-events-none"> <!-- Reduced px -->
 									{Math.round(item.totals.mufa ?? 0)}, {Math.round(item.totals.pufa ?? 0)}, {Math.round(item.totals.sfa ?? 0)} <span class="text-orange-700 text-[0.65rem]">MPS</span>
 								</span>
 								<!-- Omega Ratio -->
-								<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium" title="Omega-6:Omega-3 Ratio"> <!-- Reduced px -->
+								<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium pointer-events-none" title="Omega-6:Omega-3 Ratio"> <!-- Reduced px -->
 									{item.ratio ?? '-'} <span class="text-orange-700 text-[0.65rem]">6:3</span>
 								</span>
 								<!-- GL -->
-								<span class="bg-purple-200 text-purple-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
+								<span class="bg-purple-200 text-purple-900 px-1 py-0.5 rounded-md font-medium pointer-events-none"> <!-- Reduced px -->
 									{Math.round(item.totals.gl ?? 0)} GL
 								</span>
 							</div>
+						</button> <!-- Close button -->
 						</li>
 					{:else if item.type === 'log'}
 						{@const log = item.data} <!-- Alias item.data to log for readability -->
@@ -851,4 +920,13 @@
 			<p>No food logged yet.</p>
 		{/if}
 	</div>
+
+	<!-- Target Details Modal Instance -->
+	<TargetDetailsModal
+		bind:isOpen={isModalOpen}
+		dailyTotals={selectedDailyTotals}
+		targets={nutritionTargets}
+		dateString={selectedDateString}
+		on:close={closeTargetModal}
+	/>
 </div>
