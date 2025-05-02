@@ -184,7 +184,7 @@
         serving_unit: 'g', // Default serving unit for 100 qty
         serving_qty: 100,
         calories: null, protein: null, fat: null, carbs: null, fibers: null, sugar: null,
-        mufa: null, pufa: null, sfa: null, gl: null, comment: null
+        mufa: null, pufa: null, sfa: null, gl: null, omega3: null, omega6: null, comment: null // Added omega3, omega6
      };
      // Optionally focus the first input field after tick
      tick().then(() => {
@@ -228,6 +228,8 @@
         pufa: newItem.pufa ?? null,
         sfa: newItem.sfa ?? null,
         gl: newItem.gl ?? null,
+        omega3: newItem.omega3 ?? null, // Added omega3
+        omega6: newItem.omega6 ?? null, // Added omega6
         comment: newItem.comment?.trim() || null
      };
 
@@ -302,12 +304,14 @@
          "mufa": number | null,
          "pufa": number | null,
          "sfa": number | null,
-         "gl": number | null
+         "gl": number | null,
+         "omega3": number | null, // Added omega3
+         "omega6": number | null  // Added omega6
        }`;
 
        // Gather existing data from the form
        const existingData: { [key: string]: number } = {};
-       const fields: (keyof FoodItem)[] = ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl'];
+       const fields: (keyof FoodItem)[] = ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6']; // Added omega3, omega6
        fields.forEach(field => {
          const value = newItem[field];
          if (typeof value === 'number' && !isNaN(value)) {
@@ -365,6 +369,8 @@ ${jsonSchema}`;
        newItem.pufa = nutritionData.pufa ?? null;
        newItem.sfa = nutritionData.sfa ?? null;
        newItem.gl = nutritionData.gl ?? null;
+       newItem.omega3 = nutritionData.omega3 ?? null; // Added omega3
+       newItem.omega6 = nutritionData.omega6 ?? null; // Added omega6
 
        // Trigger reactivity by reassigning newItem
        newItem = { ...newItem };
@@ -482,11 +488,11 @@ ${jsonSchema}`;
          </div>
        </div>
        <!-- Nutritional Info Inputs -->
-       <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-3 text-sm">
-         {#each ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl'] as prop (prop)}
+       <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-3 text-sm"> <!-- Adjusted grid cols -->
+         {#each ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6'] as prop (prop)} <!-- Added omega3, omega6 -->
            {@const key = prop as keyof FoodItem}
            <div>
-             <label for="new-item-{prop}" class="block font-medium text-gray-700 capitalize">{prop}</label>
+             <label for="new-item-{prop}" class="block font-medium text-gray-700 capitalize">{prop === 'omega3' ? 'Omega-3' : prop === 'omega6' ? 'Omega-6' : prop}</label> <!-- Special labels for omega -->
              <input type="number" step="any" id="new-item-{prop}" bind:value={newItem[key]} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" placeholder="Optional" />
            </div>
          {/each}
@@ -584,7 +590,7 @@ ${jsonSchema}`;
 
         <!-- Nutritional Info Badges (Inline Editable) -->
         <div class="flex flex-wrap gap-2 text-xs">
-          {#each ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl'] as prop (prop)}
+          {#each ['calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6'] as prop (prop)} <!-- Added omega3, omega6 -->
             {@const colors = {
               calories: 'bg-blue-100 text-blue-800',
               protein: 'bg-green-100 text-green-800',
@@ -596,9 +602,11 @@ ${jsonSchema}`;
               pufa: 'bg-orange-100 text-orange-800',
               sfa: 'bg-orange-100 text-orange-800',
               gl: 'bg-purple-100 text-purple-800',
+              omega3: 'bg-teal-100 text-teal-800', // Added omega3 color
+              omega6: 'bg-cyan-100 text-cyan-800', // Added omega6 color
             }}
             <div class="{colors[prop as keyof typeof colors] || 'bg-gray-100 text-gray-800'} px-1.5 py-0.5 rounded-md">
-              <span class="font-medium uppercase text-gray-500">{prop.slice(0,3)}:</span>
+              <span class="font-medium uppercase text-gray-500">{prop === 'omega3' ? 'O3' : prop === 'omega6' ? 'O6' : prop.slice(0,3)}:</span> <!-- Special labels for omega -->
               {#if editingItemId === item.id && editingProperty === prop}
                 <input
                   type="number"

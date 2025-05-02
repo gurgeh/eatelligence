@@ -18,6 +18,8 @@
 		pufa?: number | null;
 		sfa?: number | null;
 		gl?: number | null;
+		omega3?: number | null; // Added omega3
+		omega6?: number | null; // Added omega6
 		comment?: string | null; // Keep comment in case needed later, though not displayed in summary
 	};
 
@@ -32,9 +34,17 @@
 	let searchTerm = '';
 	let searchResults: FoodItem[] = [];
 	let recentLogs: FoodLog[] = [];
+	// Define a type for the summary object including the ratio
+	type SummaryItem = {
+		type: 'summary';
+		date: string;
+		totals: Partial<FoodItem>;
+		ratio?: string; // Add optional ratio string
+	};
+
 	let displayItems: (
 		| { type: 'log'; data: FoodLog }
-		| { type: 'summary'; date: string; totals: Partial<FoodItem> }
+		| SummaryItem // Use the defined SummaryItem type
 	)[] = []; // Combined array for display
 	let allFoodItems: FoodItem[] = []; // Store all items for Fuse.js
 	let fuse: Fuse<FoodItem> | null = null; // Fuse instance
@@ -269,7 +279,9 @@
             mufa,
             pufa,
             sfa,
-            gl
+            gl,
+            omega3,
+            omega6
           )
         `
 				)
@@ -300,7 +312,9 @@
 										mufa: relatedFoodItem.mufa,
 										pufa: relatedFoodItem.pufa,
 										sfa: relatedFoodItem.sfa,
-										gl: relatedFoodItem.gl
+										gl: relatedFoodItem.gl,
+										omega3: relatedFoodItem.omega3, // Added omega3
+										omega6: relatedFoodItem.omega6  // Added omega6
 									}
 								: null
 						};
@@ -342,11 +356,13 @@
 			'mufa',
 			'pufa',
 			'sfa',
-			'gl'
+			'gl',
+			'omega3', // Added omega3
+			'omega6'  // Added omega6
 		] as const; // Use 'as const' for stricter typing of keys
 
-		// Define a type for the totals accumulator, mapping only nutrient keys to numbers
-		type DailyTotals = { [K in typeof nutrientKeys[number]]?: number };
+		// Define a type for the totals accumulator, including ratio
+		type DailyTotals = { [K in typeof nutrientKeys[number]]?: number } & { ratio?: string };
 
 		const groupedLogs: {
 			[date: string]: { logs: FoodLog[]; totals: DailyTotals };
@@ -377,6 +393,23 @@
 			}
 		}
 
+		// Calculate ratio for each day AFTER summing all nutrients
+		for (const dateStr in groupedLogs) {
+			const dailyTotals = groupedLogs[dateStr].totals;
+			const totalOmega3 = dailyTotals.omega3 ?? 0;
+			const totalOmega6 = dailyTotals.omega6 ?? 0;
+
+			if (totalOmega3 > 0) {
+				const omega6Part = (totalOmega6 / totalOmega3).toFixed(1); // Round to 1 decimal
+				dailyTotals.ratio = `${omega6Part}:1`;
+			} else if (totalOmega6 > 0) { // O3 is 0, O6 is > 0
+				dailyTotals.ratio = `∞:1`; // Or 'N/A' or similar
+			} else { // Both are 0
+				dailyTotals.ratio = `-`; // Or '0:0'
+			}
+		}
+
+
 		// Create the final display array
 		const newDisplayItems: typeof displayItems = [];
 		// Sort dates descending (newest first)
@@ -390,7 +423,8 @@
 				// Round totals before adding to displayItems
 				totals: Object.fromEntries(
 					nutrientKeys.map(key => [key, Math.round(groupedLogs[dateStr].totals[key] ?? 0)]) // Use ?? 0 for rounding potentially undefined keys
-				) as Partial<FoodItem> // Cast to Partial<FoodItem> as expected by displayItems
+				) as DailyTotals, // Use DailyTotals type here
+				ratio: groupedLogs[dateStr].totals.ratio // Add the calculated ratio
 			});
 			// Add individual logs for that day (order maintained from recentLogs)
 			for (const log of groupedLogs[dateStr].logs) {
@@ -640,6 +674,10 @@
 								<span class="bg-orange-200 text-orange-900 px-1.5 py-0.5 rounded-md font-medium">
 									{item.totals.mufa ?? 0}, {item.totals.pufa ?? 0}, {item.totals.sfa ?? 0} <span class="text-orange-700 text-[0.65rem]">MPS</span>
 								</span>
+								<!-- Omega Ratio -->
+								<span class="bg-orange-200 text-orange-900 px-1.5 py-0.5 rounded-md font-medium" title="Omega-6:Omega-3 Ratio">
+									{item.ratio ?? '-'} <span class="text-orange-700 text-[0.65rem]">6:3</span>
+								</span>
 								<!-- GL -->
 								<span class="bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded-md font-medium">
 									{item.totals.gl ?? 0} GL
@@ -757,6 +795,10 @@
 							<!-- MUFA, PUFA, SFA -->
 							<span class="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-md">
 								{Math.round((log.food_items.mufa ?? 0) * log.multiplier)}, {Math.round((log.food_items.pufa ?? 0) * log.multiplier)}, {Math.round((log.food_items.sfa ?? 0) * log.multiplier)} <span class="text-orange-600 text-[0.65rem]">MPS</span>
+							</span>
+							<!-- Omega 6:3 -->
+							<span class="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-md">
+								{Math.round((log.food_items.omega6 ?? 0) * log.multiplier)}, {Math.round((log.food_items.omega3 ?? 0) * log.multiplier)} <span class="text-orange-600 text-[0.65rem]">6:3</span>
 							</span>
 							<!-- GL -->
 							<span class="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded-md">

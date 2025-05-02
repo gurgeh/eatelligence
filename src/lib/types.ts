@@ -15,9 +15,10 @@ export interface FoodItem {
   pufa: number | null; // Polyunsaturated Fatty Acids
   sfa: number | null;  // Saturated Fatty Acids
   gl: number | null;   // Glycemic Load
+  omega3: number | null; // Omega-3 Fatty Acids
+  omega6: number | null; // Omega-6 Fatty Acids
   comment: string | null;
   created_at: string;
-  // Add other fields if they exist (e.g., omega_3, omega_6, dii later)
 }
 
 // Add other shared types here as needed, e.g., for FoodLog

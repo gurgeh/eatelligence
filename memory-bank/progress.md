@@ -27,14 +27,20 @@
 - [x] Add `serving_qty` and `serving_unit` columns to `food_items` table via migration
 - [x] Create view for creating recipes from log entries (`/create-recipe`)
 - [x] LLM integration for auto-filling nutrition data (`/food-items`: Added button to call Gemini 2.5 Pro with grounding, using user-provided API key from Local Storage, includes existing data in prompt, parses JSON response to fill form fields)
-- [ ] Add PRAL and Omega-3/6 ratio (DII is not measured enough)
-- [ ] Use LLM to add missing nutrition data (Could potentially leverage the auto-fill function for existing items)
-- [ ] Authentication (Supabase) and decide on separate food items for each user
+- [x] Add Omega-3/6 ratio (Added DB columns, updated types, food item management, recipe creation, log view calculations & display. Daily ratio shown as O6:O3, individual log items show O6, O3 grouped with fats before GL.)
+- [ ] Switch small icons to those without text
+- [ ] Dropdown for quantity type
+- [ ] Support for quantity conversion from LLM-data
+- [ ] Calculate kcal from protein, fat, and carbs and fibers
+- [ ] Use LLM to add missing nutrition data (Could potentially leverage the auto-fill function for existing items) or just clear DB
+- [ ] Authentication (Supabase) and decide on separate food items for each user (yes)
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)
 - [ ] Remove Cal and GL to make the line shorter
+- [ ] Move create recipe button to top
 - [ ] Add nutrition targets or target intervals
 - [ ] LLM integration from recipe name to ingredients
-- [ ] Photo input for recipes
+- [ ] Allow name+comment in recipe creation
+- [ ] Add optional photo input with name for recipes
 - [ ] Prettier interface. Maybe logo on desktop
 - [ ] Mean for last 7 days
 - [ ] Maybe voice input

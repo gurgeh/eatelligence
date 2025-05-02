@@ -35,7 +35,7 @@
           logged_at,
           multiplier,
           food_item_id,
-          food_items ( id, name, serving_qty, serving_unit, calories, protein, fat, carbs, fibers, sugar, mufa, pufa, sfa, gl )
+          food_items ( id, name, serving_qty, serving_unit, calories, protein, fat, carbs, fibers, sugar, mufa, pufa, sfa, gl, omega3, omega6 )
         `
         )
         .order('logged_at', { ascending: false })
@@ -91,7 +91,7 @@
   // --- Totals Calculation ---
   // Define the keys we expect to sum and round
   const nutrientKeys: (keyof FoodItem)[] = [
-    'calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl'
+    'calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6' // Added omega3, omega6
   ];
   // Initialize totals with all expected keys set to 0
   let totals: { [K in keyof FoodItem]?: number } & { count: number } = { count: 0 };
@@ -124,6 +124,8 @@
         newTotals.pufa = add(newTotals.pufa, (item.pufa || 0) * multiplier);
         newTotals.sfa = add(newTotals.sfa, (item.sfa || 0) * multiplier);
         newTotals.gl = add(newTotals.gl, (item.gl || 0) * multiplier);
+        newTotals.omega3 = add(newTotals.omega3, (item.omega3 || 0) * multiplier); // Added omega3
+        newTotals.omega6 = add(newTotals.omega6, (item.omega6 || 0) * multiplier); // Added omega6
       }
     }
     newTotals.count = calculatedCount;
@@ -176,6 +178,8 @@
         pufa: totals.pufa ?? 0,
         sfa: totals.sfa ?? 0,
         gl: totals.gl ?? 0,
+        omega3: totals.omega3 ?? 0, // Added omega3
+        omega6: totals.omega6 ?? 0, // Added omega6
         comment: comment
     };
 
@@ -229,6 +233,8 @@
             <span class="bg-yellow-200 text-yellow-900 px-1.5 py-0.5 rounded-md font-medium">{totals.fibers ?? 0}, {totals.sugar ?? 0} <span class="text-yellow-700 text-[0.65rem]">FiS</span></span>
             <span class="bg-orange-200 text-orange-900 px-1.5 py-0.5 rounded-md font-medium">{totals.mufa ?? 0}, {totals.pufa ?? 0}, {totals.sfa ?? 0} <span class="text-orange-700 text-[0.65rem]">MPS</span></span>
             <span class="bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded-md font-medium">{totals.gl ?? 0} GL</span>
+            <span class="bg-teal-200 text-teal-900 px-1.5 py-0.5 rounded-md font-medium">{totals.omega3 ?? 0} O3</span> <!-- Added O3 display -->
+            <span class="bg-cyan-200 text-cyan-900 px-1.5 py-0.5 rounded-md font-medium">{totals.omega6 ?? 0} O6</span> <!-- Added O6 display -->
         </div>
       {:else}
         <p class="text-sm text-gray-500">Select log entries below to see totals.</p>

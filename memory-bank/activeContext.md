@@ -1,3 +1,60 @@
+# Active Context - Omega-3/6 Ratio (May 2, 2025)
+
+**Current Focus:** Completed implementation of Omega-3 and Omega-6 tracking and ratio display.
+
+**Decisions Made:**
+*   Added `omega3` and `omega6` numeric columns to the `food_items` table.
+*   Updated the `FoodItem` type definition in `src/lib/types.ts`.
+*   Updated the food item management page (`/food-items`) to include input fields and display badges for Omega-3/6.
+*   Updated the Gemini auto-fill prompt and parsing logic to include Omega-3/6.
+*   Updated the recipe creation page (`/create-recipe`) to calculate and store Omega-3/6 totals for new recipes.
+*   Updated the main log page (`/`) to:
+    *   Fetch Omega-3/6 data.
+    *   Display Omega-6 and Omega-3 values (in that order, labeled "6:3") grouped with fats (orange badge) in individual log item summaries, placed before the GL badge.
+    *   Calculate the daily Omega-6:Omega-3 ratio.
+    *   Display the calculated daily ratio (labeled "6:3", orange badge) in the daily summary divider, placed before the GL badge.
+
+**Implementation Details:**
+*   Used Supabase MCP `apply_migration` to add `omega3` and `omega6` columns to `food_items`.
+*   Modified `src/lib/types.ts` to add optional `omega3` and `omega6` to `FoodItem`.
+*   Modified `src/routes/food-items/+page.svelte`:
+    *   Added `omega3`, `omega6` to `newItem` initialization in `showCreateForm`.
+    *   Added `omega3`, `omega6` to `itemToInsert` in `saveNewItem`.
+    *   Added input fields for `omega3`, `omega6` in the creation form.
+    *   Added `omega3`, `omega6` to the `#each` loop for displaying nutritional badges, using appropriate labels ("O3", "O6") and colors (teal, cyan). Enabled inline editing.
+    *   Updated `autoFillNutrition` JSON schema, `fields` array, and response parsing to include `omega3`, `omega6`.
+*   Modified `src/routes/create-recipe/+page.svelte`:
+    *   Added `omega3`, `omega6` to the Supabase select query in `fetchLogs`.
+    *   Added `omega3`, `omega6` to `nutrientKeys` array.
+    *   Updated `calculateTotals` to sum `omega3` and `omega6`.
+    *   Added `omega3`, `omega6` to `newFoodItemData` in `createRecipe`.
+    *   Added display for `omega3` and `omega6` totals in the summary section.
+*   Modified `src/routes/+page.svelte`:
+    *   Added `omega3`, `omega6` to the local `FoodItem` type definition.
+    *   Added `ratio` property to the `SummaryItem` type definition.
+    *   Updated Supabase select query in `fetchRecentLogs` to include `omega3`, `omega6`.
+    *   Updated mapping in `fetchRecentLogs` to include `omega3`, `omega6`.
+    *   Updated `processLogsForDisplay`:
+        *   Added `omega3`, `omega6` to `nutrientKeys`.
+        *   Updated `DailyTotals` type definition.
+        *   Added logic to calculate the daily ratio (`omega6 / omega3`) and store it as a string (e.g., "4.2:1", "∞:1", "-") in `groupedLogs[dateStr].totals.ratio`.
+        *   Passed the calculated `ratio` when creating the summary item in `newDisplayItems`.
+    *   Updated the individual log item summary display:
+        *   Removed separate O3 and O6 badges.
+        *   Added a combined "6:3" badge using the orange color scheme, displaying rounded O6 and O3 values, placed before the GL badge.
+    *   Updated the daily summary divider display:
+        *   Added a badge to display the calculated `item.ratio`, labeled "6:3", using the orange color scheme (previously pink), placed before the GL badge.
+
+**Troubleshooting:**
+*   Corrected TypeScript errors related to missing `omega3`/`omega6` properties after modifying types and interfaces.
+*   Fixed Svelte parser errors caused by comments within Supabase select strings.
+*   Adjusted badge order and labeling in the main log view based on user feedback.
+
+**Next Steps:**
+*   Proceed with the next task from `progress.md`.
+
+---
+
 # Active Context - Recipe Creation from Log
 
 **Current Focus:** Implementing the ability to create new "recipe" food items by selecting existing entries from the food log.
