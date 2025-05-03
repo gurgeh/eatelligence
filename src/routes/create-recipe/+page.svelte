@@ -233,7 +233,12 @@
 
 <div class="container mx-auto p-4 max-w-5xl">
   <!-- Removed test button -->
-  <h1 class="text-2xl font-bold mb-4">Create Recipe from Log</h1>
+  <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">Create Recipe from Log</h1>
+      <a href="/recipes/generate" class="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+        Generate Recipe with AI
+      </a>
+  </div>
 
   {#if isLoading}
     <p>Loading log entries...</p>

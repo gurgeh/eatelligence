@@ -202,6 +202,29 @@
      newItem = {};
    }
 
+   // --- Handle Unit Change for Default Quantity ---
+   function handleUnitChange(event: Event) {
+     const target = event.target as HTMLSelectElement;
+     const selectedUnit = target.value;
+
+     switch (selectedUnit) {
+       case 'g':
+         newItem.serving_qty = 100;
+         break;
+       case 'dl':
+       case 'pcs':
+       case 'portion':
+         newItem.serving_qty = 1;
+         break;
+       default:
+         // Keep existing value or set a default if needed
+         newItem.serving_qty = newItem.serving_qty ?? 1; // Keep existing or default to 1
+     }
+     // Trigger reactivity by reassigning (though direct mutation often works in Svelte 3/4)
+     newItem = { ...newItem };
+   }
+
+
    async function saveNewItem() {
      // Basic validation (add more as needed)
      if (!newItem.name?.trim()) {
@@ -529,7 +552,7 @@ ${jsonSchema}`;
          </div>
          <div>
            <label for="new-item-unit" class="block text-sm font-medium text-gray-700">Serving Unit</label>
-           <select id="new-item-unit" bind:value={newItem.serving_unit} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" required>
+           <select id="new-item-unit" bind:value={newItem.serving_unit} on:change={handleUnitChange} class="mt-1 block w-full p-1 border border-gray-300 rounded shadow-sm" required>
              {#each servingUnits as unit}
                <option value={unit}>{unit}</option>
              {/each}

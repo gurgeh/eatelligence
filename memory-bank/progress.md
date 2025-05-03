@@ -41,14 +41,23 @@
 - [x] Add nutrition targets or target intervals
 - [x] Check if LLM auto-fill works now (log prompt. switch back to `gemini-2.5-pro-preview-03-25`)
 - [x] LLM should be allowed to fill comment with assumed portion size etc (Updated prompt to include user comment, switched to Pro model, instructed LLM to return assumptions in comment field, updated frontend to append assumptions)
-- [ ] Serving unit should change default quantity based on the selected unitin Add New Item
-- [ ] LLM integration from recipe name to ingredients
-- [ ] Allow name+comment in recipe creation
+- [x] Serving unit should change default quantity based on the selected unit in Add New Item (Added `on:change` handler to unit select in `/food-items` to set qty: g=100, dl/pcs/portion=1)
+- [x] LLM integration from recipe name to ingredients (`/recipes/generate`: Created page, implemented LLM call for ingredient list focusing on caloric items, added UI for review/deletion, implemented parallel processing for fetching nutrition & inserting new items with standard serving sizes (100g/1dl) + multipliers, fetching existing item nutrition, summing totals, and creating final recipe `food_item`. Improved display format. Added retry button for failed ingredient processing. Added nutritional summary display before saving. Separated processing and saving into distinct buttons. Added link from `/create-recipe`.)
+- [x] Allow name+comment in recipe creation (Implemented as part of LLM recipe generation)
+- [ ] Perhaps all ingredients should always be loaded locally?
+- [ ] Do not add references in the LLM comments
+- [ ] Possibility to add ingredients to the LLM recipe list
+- [ ] dl does not seem to work, at least for rice noodles
+- [ ] Read through code, including TODOs and especially Omega-3/6 handling in recipe creation
 - [ ] Authentication (Supabase) and decide on separate food items for each user (yes)
 - [ ] Clear DB
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)
+- [ ] Maybe ask LLM for cleanup
 - [ ] Add optional photo input with name for recipes
+- [ ] Show calculated kcal in add new item and recipe creation
 - [ ] Mean for last 7 days
+- [ ] Maybe
+- [ ] Setting new LLM API key
 - [ ] Prettier interface. Maybe logo on desktop
 - [ ] Construct some sort of tutorial (in Readme or in app)
 - [ ] Make a real README.md
