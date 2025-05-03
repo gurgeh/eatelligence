@@ -38,15 +38,18 @@
 - [x] Omega 3/6 should show "-" not only in the summary but also in the log (Updated individual log item badge logic in `+page.svelte`)
 - [x] Fix Omega-3/6 display in Manage Items (Corrected order and colors in `/food-items/+page.svelte` display badges and create form inputs to match log view: PFC, FiS, MPS, 6:3 (orange), GL. Ensured 0 values are displayed and editable.)
 - [x] (amount unit) should probably be displayed before the x in the log (Changed display order in `+page.svelte`)
-- [ ] Add nutrition targets or target intervals
-- [ ] Check if LLM auto-fill works now (log prompt. switch back to `gemini-2.5-pro-preview-03-25`)
-- [ ] LLM should be allowed to fill comment with assumed portion size etc
+- [x] Add nutrition targets or target intervals
+- [x] Check if LLM auto-fill works now (log prompt. switch back to `gemini-2.5-pro-preview-03-25`)
+- [x] LLM should be allowed to fill comment with assumed portion size etc (Updated prompt to include user comment, switched to Pro model, instructed LLM to return assumptions in comment field, updated frontend to append assumptions)
+- [ ] Serving unit should change default quantity based on the selected unitin Add New Item
 - [ ] LLM integration from recipe name to ingredients
 - [ ] Allow name+comment in recipe creation
-- [ ] Clear DB
 - [ ] Authentication (Supabase) and decide on separate food items for each user (yes)
+- [ ] Clear DB
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)
 - [ ] Add optional photo input with name for recipes
-- [ ] Prettier interface. Maybe logo on desktop
 - [ ] Mean for last 7 days
-- [ ] Maybe voice input
+- [ ] Prettier interface. Maybe logo on desktop
+- [ ] Construct some sort of tutorial (in Readme or in app)
+- [ ] Make a real README.md
+- [ ] Add a license

@@ -309,7 +309,8 @@
          "sfa": number | null,
          "gl": number | null,
          "omega3": number | null, 
-         "omega6": number | null
+         "omega6": number | null,
+         "comment"?: string | null // Keep comment optional
        }`;
 
        // Gather existing data from the form (calories removed from fields)
@@ -331,19 +332,22 @@
        // Ensure serving_qty and serving_unit are valid before using them in the prompt
        const servingQty = newItem.serving_qty ?? 1; // Default to 1 if undefined
        const servingUnit = newItem.serving_unit?.trim() || 'unit'; // Default to 'unit' if empty/undefined
+       const userComment = newItem.comment?.trim() || ''; // Get user comment
+       const commentPrompt = userComment ? `\n\nConsider the following user-provided comment for additional context: "${userComment}"` : ''; // Add comment to prompt if present
 
-       // Updated prompt: Removed calories, clarified carbs meaning
-       const prompt = `Provide nutritional information per ${servingQty} ${servingUnit} for the food item "${newItem.name.trim()}".
+       // Updated prompt: Removed calories, clarified carbs meaning, added user comment
+       const prompt = `Provide nutritional information per ${servingQty} ${servingUnit} for the food item "${newItem.name.trim()}".${commentPrompt}
 Use web search (grounding) to find the most accurate data.${existingDataPrompt}
 IMPORTANT: For the 'carbs' field, provide the value for TOTAL carbohydrates (including fiber).
 If specific data for fields like MUFA, PUFA, SFA, or GL is not found for the exact name, search for a more general category (e.g., search for "cheese" if "Brand X Swiss Cheese" data is missing).
-Estimate any remaining nutritional values you cannot find through search, using any provided known values as context. Ensure ALL fields in the requested JSON structure are populated with a numerical value (use null only if estimation is impossible after searching).
+Estimate any remaining nutritional values you cannot find through search, using any provided known values as context. Ensure ALL *nutritional* fields in the requested JSON structure are populated with a numerical value (use null only if estimation is impossible after searching). Round values below 0.5 to 0.
+If you make any significant assumptions during estimation (e.g., assuming 'baked' for cooking method if unspecified, assuming a standard weight for '1 medium banana'), include them in the 'comment' field of the JSON response, prefixed with "LLM Assumptions: ". If no significant assumptions were made, set the 'comment' field to null in the JSON response.
 Return the result ONLY as a valid JSON object matching this structure, with no surrounding text or explanations:
 ${jsonSchema}`;
 
        // Correct API call using 'config' for tools, access text via candidates
        const result = await genAI.models.generateContent({
-         model: "gemini-2.5-flash-preview-04-17", // <-- Use specific preview model ID
+         model: "gemini-2.5-pro-preview-03-25", // <-- Switched to Pro model as requested
          contents: [{ role: "user", parts: [{ text: prompt }] }],
          config: { // <-- Use 'config' based on user example
            tools: [{ googleSearch: {} }], // Enable grounding tool
@@ -395,8 +399,23 @@ ${jsonSchema}`;
        newItem.pufa = nutritionData.pufa ?? null;
        newItem.sfa = nutritionData.sfa ?? null;
        newItem.gl = nutritionData.gl ?? null;
+       const originalUserComment = newItem.comment?.trim() || ''; // Store original comment before potential overwrite
+
        newItem.omega3 = nutritionData.omega3 ?? null; // Added omega3
        newItem.omega6 = nutritionData.omega6 ?? null; // Added omega6
+
+       // Check if LLM returned assumptions in its comment field
+       const llmComment = nutritionData.comment?.trim() || '';
+       let finalComment = originalUserComment; // Default to original comment
+
+       if (llmComment.startsWith('LLM Assumptions:')) {
+          // LLM provided assumptions, append them
+          const assumptionsText = llmComment; // Use the full comment from LLM
+          finalComment = originalUserComment ? `${originalUserComment}\n${assumptionsText}` : assumptionsText;
+       }
+       // If llmComment is empty or doesn't start with the prefix, finalComment remains the originalUserComment
+
+       newItem.comment = finalComment; // Set the final comment value
 
        // Trigger reactivity by reassigning newItem
        newItem = { ...newItem };

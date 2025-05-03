@@ -28,6 +28,11 @@ This summary consolidates key decisions and implementation details from recent t
         *   Instructs the model to return only a valid JSON object matching the required schema, generalizing searches and estimating missing values where necessary.
     *   The returned nutritional data (which is per the specified serving) is saved directly to the database.
     *   **Prompt Update (May 2, 2025):** The prompt no longer requests `calories` and explicitly asks for *total* carbohydrates (including fiber) for the `carbs` field to ensure correct data for dynamic kcal calculation.
+    *   **Comment Integration & Assumptions (May 3, 2025):**
+        *   Switched model to `gemini-2.5-pro-preview-03-25` for potentially better handling of context.
+        *   The user's comment from the form is now included in the prompt sent to the LLM for additional context.
+        *   The LLM is instructed to include any significant assumptions (e.g., cooking method, standard weights) in the `comment` field of its JSON response, prefixed with "LLM Assumptions: ".
+        *   The frontend code now checks the `comment` field returned by the LLM. If it starts with "LLM Assumptions: ", this text is appended (with a newline) to the user's original comment in the form field. Otherwise, the user's original comment is preserved.
 
 ## Dynamic Kcal Calculation (May 2, 2025)
 
