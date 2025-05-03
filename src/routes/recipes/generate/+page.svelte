@@ -379,37 +379,52 @@ ${jsonSchema}`;
       // 2. Execute all processing promises concurrently
       const results = await Promise.allSettled(processingPromises);
 
-      // 3. Update generatedIngredients based on results using the originalIndex
-      results.forEach(result => {
-        // We know the result object (fulfilled or rejected) will contain originalIndex
-        // because we explicitly added it in the map function above.
-        // We need to cast the result value/reason to access it.
-        if (result.status === 'fulfilled') {
-          const value = result.value as { originalIndex: number, id: number, multiplier: number, serving_qty: number, serving_unit: string, nutrition: any };
-          const idx = value.originalIndex;
-          generatedIngredients[idx].status = 'done';
-          generatedIngredients[idx].id = value.id;
-          generatedIngredients[idx].multiplier = value.multiplier;
-          generatedIngredients[idx].serving_qty = value.serving_qty;
-          generatedIngredients[idx].serving_unit = value.serving_unit;
-          generatedIngredients[idx].nutrition = value.nutrition;
-        } else { // status === 'rejected'
-          const reason = result.reason as { originalIndex: number, reason: string };
-          const idx = reason.originalIndex;
-          // Ensure index is valid before attempting update
-          if (idx !== undefined && generatedIngredients[idx]) {
-             generatedIngredients[idx].status = 'error';
-             generatedIngredients[idx].errorMsg = reason.reason;
-          } else {
-             // Log error if index is somehow missing or invalid
-             console.error("Could not update ingredient status due to missing/invalid index in rejected promise:", reason);
+      // 3. Create a new array based on results using the originalIndex
+      const updatedIngredients = generatedIngredients.map((originalIngredient, index) => {
+          const result = results.find(r => {
+              // Find the result corresponding to this original index
+              if (r.status === 'fulfilled') {
+                  return (r.value as { originalIndex: number }).originalIndex === index;
+              } else { // status === 'rejected'
+                  return (r.reason as { originalIndex: number }).originalIndex === index;
+              }
+          });
+
+          if (!result) {
+              // Should not happen if logic is correct, but return original as fallback
+              console.warn(`No result found for original index ${index}, returning original ingredient state.`);
+              return originalIngredient;
           }
-        }
+
+          if (result.status === 'fulfilled') {
+              const value = result.value as { originalIndex: number, id: number, multiplier: number, serving_qty: number, serving_unit: string, nutrition: any };
+              // Return a *new* object with all updated properties
+              return {
+                  ...originalIngredient, // Keep any existing properties not overwritten
+                  id: value.id,
+                  multiplier: value.multiplier,
+                  serving_qty: value.serving_qty,
+                  serving_unit: value.serving_unit,
+                  status: 'done' as const, // Explicitly type as 'done' literal
+                  nutrition: value.nutrition,
+                  errorMsg: undefined // Clear any previous error
+              };
+          } else { // status === 'rejected'
+              const reason = result.reason as { originalIndex: number, reason: string };
+              // Return a *new* object with error status
+              return {
+                  ...originalIngredient, // Keep existing properties
+                  status: 'error' as const, // Explicitly type as 'error' literal
+                  errorMsg: reason.reason
+              };
+          }
       });
-      generatedIngredients = [...generatedIngredients]; // Final reactivity trigger after updates
+
+      // Assign the newly created array to trigger Svelte reactivity correctly
+      generatedIngredients = updatedIngredients;
       calculateRecipeTotals(); // Calculate totals after processing new items
 
-      // 4. Check if any items failed during parallel processing
+      // 4. Check if any items failed *after* the state update
       const failedItems = generatedIngredients.filter(ing => ing.status === 'error');
       if (failedItems.length > 0) {
         // Construct a more informative error message if needed
@@ -747,31 +762,43 @@ ${jsonSchema}`;
             <span class="flex-grow mr-2">
               {#if ingredient.status === 'done'}
                  <!-- Processed Item (Matched or New) -->
-                 {@const displayName = ingredient.matchedName || ingredient.name}
+                 {@const displayName = ingredient.matchedName || ingredient.name || 'Unknown Item'}
                  {@const displayQty = ingredient.serving_qty || '?'}
                  {@const displayUnit = ingredient.serving_unit || 'unit'}
                  {@const displayMultiplier = ingredient.multiplier?.toFixed(2) || '1.00'}
                  {displayName} ({displayQty} {displayUnit}) x {displayMultiplier}
-              {:else if !ingredient.id}
-                 <!-- New Item (Before/During Processing) -->
-                 {ingredient.quantity}{ingredient.unit} {ingredient.name} <span class="text-xs text-blue-500">(New)</span>
-              {:else}
-                 <!-- Matched Item (Before Processing) -->
-                 {ingredient.matchedName} ({ingredient.serving_qty || '?'} {ingredient.serving_unit || 'unit'}) x {ingredient.multiplier}
-              {/if}
-              {#if ingredient.status === 'processing'}
+              {:else if ingredient.status === 'processing'}
+                 <!-- Processing Item (Show original details if available) -->
+                 {#if !ingredient.id}
+                   {ingredient.quantity}{ingredient.unit} {ingredient.name} <span class="text-xs text-blue-500">(New)</span>
+                 {:else}
+                   {ingredient.matchedName} ({ingredient.serving_qty || '?'} {ingredient.serving_unit || 'unit'}) x {ingredient.multiplier}
+                 {/if}
                  <span class="text-xs text-yellow-600 ml-2">Processing...</span>
               {:else if ingredient.status === 'error'}
-                <span class="text-xs text-red-600 ml-1" title={ingredient.errorMsg}>Error!</span>
-                <button
-                  type="button"
-                  on:click={() => retryProcessIngredient(index)}
-                  class="ml-1 px-1 py-0 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                  title="Retry processing this ingredient"
-                  disabled={isLoadingRecipe}
-                >
-                  🔄 Retry
-                </button>
+                 <!-- Errored Item (Show original details + error) -->
+                 {#if !ingredient.id}
+                   {ingredient.quantity}{ingredient.unit} {ingredient.name} <span class="text-xs text-blue-500">(New)</span>
+                 {:else}
+                   {ingredient.matchedName} ({ingredient.serving_qty || '?'} {ingredient.serving_unit || 'unit'}) x {ingredient.multiplier}
+                 {/if}
+                 <span class="text-xs text-red-600 ml-1" title={ingredient.errorMsg}>Error!</span>
+                 <button
+                   type="button"
+                   on:click={() => retryProcessIngredient(index)}
+                   class="ml-1 px-1 py-0 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                   title="Retry processing this ingredient"
+                   disabled={isLoadingRecipe}
+                 >
+                   🔄 Retry
+                 </button>
+              {:else}
+                 <!-- Idle Item (Show original details) -->
+                 {#if !ingredient.id}
+                   {ingredient.quantity}{ingredient.unit} {ingredient.name} <span class="text-xs text-blue-500">(New)</span>
+                 {:else}
+                   {ingredient.matchedName} ({ingredient.serving_qty || '?'} {ingredient.serving_unit || 'unit'}) x {ingredient.multiplier}
+                 {/if}
               {/if}
             </span>
             <button
