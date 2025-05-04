@@ -3,7 +3,14 @@
   import type { FoodItem } from '$lib/types';
   import { onMount } from 'svelte';
   import { GoogleGenAI } from '@google/genai'; // Import Gemini
-  import { calculateKcal } from '$lib/utils'; // Import calculation helper
+  import { calculateKcal, ratio } from '$lib/utils'; // Import calculation helper AND ratio
+
+  // Simple assertion function
+  function assert(condition: any, message: string): asserts condition {
+    if (!condition) {
+      throw new Error(message);
+    }
+  }
 
   type ExistingItemInfo = {
     id: number;
@@ -96,16 +103,11 @@
       }
 
       // Calculate ratio
-      const totalOmega3 = newTotals.omega3 ?? 0;
-      const totalOmega6 = newTotals.omega6 ?? 0;
-      let calculatedRatio = '-';
-      if (totalOmega3 > 0) {
-          const omega6Part = (totalOmega6 / totalOmega3).toFixed(1);
-          calculatedRatio = `${omega6Part}:1`;
-      } else if (totalOmega6 > 0) {
-          calculatedRatio = `∞:1`;
-      }
-      (newTotals as any).ratio = calculatedRatio;
+      // Calculate ratio using the new utility function
+      const calculatedRatio = ratio(newTotals.omega6, newTotals.omega3); // Use the imported ratio function
+
+      // Assign the calculated ratio (string | undefined)
+      (newTotals as any).ratio = calculatedRatio; // Keep 'any' cast as type wasn't updated
 
       recipeTotals = newTotals; // Assign the final totals to the state variable
   }
@@ -328,13 +330,26 @@ ${jsonSchema}`;
             try {
                nutritionData = JSON.parse(match[1]);
             } catch (parseError) {
-               console.error("Failed to parse nutrition JSON:", parseError, "\nOriginal Response:", responseText);
-               throw new Error("AI nutrition response JSON invalid.");
-            }
+             console.error("Failed to parse nutrition JSON:", parseError, "\nOriginal Response:", responseText);
+             throw new Error("AI nutrition response JSON invalid.");
+           }
 
-            // Prepare item for DB insert
-            const itemToInsert = {
-              name: name,
+           // --- VALIDATION ---
+           // Ensure omega values are numbers as expected from the prompt/schema
+           assert(
+             typeof nutritionData.omega6 === 'number' || nutritionData.omega6 === null,
+             `Omega 6 from AI must be a number or null, got type: ${typeof nutritionData.omega6}, value: ${nutritionData.omega6}`
+           );
+            assert(
+             typeof nutritionData.omega3 === 'number' || nutritionData.omega3 === null,
+             `Omega 3 from AI must be a number or null, got type: ${typeof nutritionData.omega3}, value: ${nutritionData.omega3}`
+           );
+           // --- END VALIDATION ---
+
+
+           // Prepare item for DB insert
+           const itemToInsert = {
+             name: name,
               serving_qty: standardQty,
               serving_unit: standardUnit,
               protein: nutritionData.protein ?? null, fat: nutritionData.fat ?? null, carbs: nutritionData.carbs ?? null,
@@ -617,16 +632,27 @@ ${jsonSchema}`;
         const jsonRegex = /.*(\{[\s\S]*\})/s;
         const match = responseText.match(jsonRegex);
         if (!match || !match[1]) throw new Error("AI nutrition response JSON structure not found.");
-        try {
-           nutritionData = JSON.parse(match[1]);
-        } catch (parseError) {
-           console.error("Failed to parse nutrition JSON on retry:", parseError, "\nOriginal Response:", responseText);
-           throw new Error("AI nutrition response JSON invalid on retry.");
-        }
+         try {
+            nutritionData = JSON.parse(match[1]);
+         } catch (parseError) {
+            console.error("Failed to parse nutrition JSON on retry:", parseError, "\nOriginal Response:", responseText);
+            throw new Error("AI nutrition response JSON invalid on retry.");
+         }
 
-        const itemToInsert = {
-          name: name, serving_qty: standardQty, serving_unit: standardUnit,
-          protein: nutritionData.protein ?? null, fat: nutritionData.fat ?? null, carbs: nutritionData.carbs ?? null,
+         // --- VALIDATION (Retry) ---
+         assert(
+           typeof nutritionData.omega6 === 'number' || nutritionData.omega6 === null,
+           `Omega 6 from AI (retry) must be a number or null, got type: ${typeof nutritionData.omega6}, value: ${nutritionData.omega6}`
+         );
+          assert(
+           typeof nutritionData.omega3 === 'number' || nutritionData.omega3 === null,
+           `Omega 3 from AI (retry) must be a number or null, got type: ${typeof nutritionData.omega3}, value: ${nutritionData.omega3}`
+         );
+         // --- END VALIDATION (Retry) ---
+
+         const itemToInsert = {
+           name: name, serving_qty: standardQty, serving_unit: standardUnit,
+           protein: nutritionData.protein ?? null, fat: nutritionData.fat ?? null, carbs: nutritionData.carbs ?? null,
           fibers: nutritionData.fibers ?? null, sugar: nutritionData.sugar ?? null, mufa: nutritionData.mufa ?? null,
           pufa: nutritionData.pufa ?? null, sfa: nutritionData.sfa ?? null, gl: nutritionData.gl ?? null,
           omega3: nutritionData.omega3 ?? null, omega6: nutritionData.omega6 ?? null,

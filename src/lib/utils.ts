@@ -95,3 +95,33 @@ export function formatDisplayDate(dateInput: string | Date | null | undefined): 
         return '';
     }
 }
+
+/**
+ * Rounds a number to a specified number of decimal places.
+ * @param value The number to round.
+ * @param decimals The number of decimal places to round to.
+ * @returns The rounded number.
+ */
+export function round(value: number, decimals: number): number {
+  if (isNaN(value) || !isFinite(value)) return value; // Return as is if not a finite number
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
+}
+
+/**
+ * Calculates and formats the Omega-6 to Omega-3 ratio as a string 'N : 1'.
+ * Returns undefined if inputs are invalid, null, undefined, or if Omega-3 is zero.
+ * @param n6 Omega-6 value (grams).
+ * @param n3 Omega-3 value (grams).
+ * @returns The formatted ratio string (e.g., "4.2 : 1") or undefined.
+ */
+export function ratio(n6: number | null | undefined, n3: number | null | undefined): string | undefined {
+    // Check for null, undefined, non-finite numbers, or n3 being zero
+    if (n6 == null || n3 == null || !isFinite(n6) || !isFinite(n3) || n3 === 0) {
+        return undefined;
+    }
+    // Calculate ratio, round Omega-6 part to one decimal place
+    const calculatedRatio = round(n6 / n3, 1);
+    // Format using non-breaking space
+    return `${calculatedRatio}\u00A0:\u00A01`;
+}

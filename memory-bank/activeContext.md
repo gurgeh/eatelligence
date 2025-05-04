@@ -79,6 +79,10 @@ This summary consolidates key decisions and implementation details from recent t
     *   Individual log items now display the base `serving_qty` and `serving_unit` *before* the multiplier (e.g., `(100g) x1.5`). This requires the data to be present in the `food_items` table.
     *   Fixed calorie calculation discrepancy between individual log items and the daily summary. Both now calculate calories based on the exact nutrient amounts for their scope (multiplied for individual, summed for daily) and rely on the single `Math.round()` within `calculateKcal`.
     *   Reintroduced `Math.round()` for the *display* of individual summed nutrients (PFC, FiS, etc.) in the daily summary row for visual clarity, while ensuring the calorie calculation uses the unrounded sums.
+*   **Omega-3/6 Ratio Fix (`/recipes/generate`, May 4, 2025):**
+    *   Added a dedicated `ratio` function to `src/lib/utils.ts` to format the 6:3 ratio string purely for display purposes, taking numeric grams as input.
+    *   Updated the `calculateRecipeTotals` function in `src/routes/recipes/generate/+page.svelte` to use this new `ratio` function for displaying the summary ratio, ensuring the calculation remains based on summed grams. This fixes a bug where the previous formatter was incorrectly applied to summed totals.
+    *   Added `assert` checks within the LLM response parsing logic (`processNewIngredients` and `retryProcessIngredient`) in `src/routes/recipes/generate/+page.svelte` to ensure `omega3` and `omega6` values received from the AI are numbers (or null), preventing potential type errors downstream.
 
 ## Next Steps
 
