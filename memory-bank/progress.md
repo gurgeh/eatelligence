@@ -48,18 +48,20 @@
 - [x] Do not add references in the LLM comments and make them shorter. Also The ingredient list maker should not use search.
 - [x] The odd async bug was not fixed. Fix.
 - [x] Fix Omega-3/6 ratio display bug in LLM recipe generation (`/recipes/generate`: Added dedicated `ratio` util, updated total calculation display, added LLM response validation)
-- [ ] Perhaps all ingredients should always be loaded locally?
-- [ ] Possibility to add ingredients to the LLM recipe list
-- [ ] Read through code, including TODOs and especially Omega-3/6 handling in recipe creation (Addressed specific bug reported May 4)
+- [x] Possibility to add ingredients to the LLM recipe list
+- [x] Possibility to modify quantities in the LLM recipe list
+- [ ] Change calorie calculation to new carb field definition: carbs excluding fibers.
 - [ ] Authentication (Supabase) and decide on separate food items for each user (yes)
 - [ ] Clear DB
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)
-- [ ] Maybe ask LLM for cleanup
 - [ ] Add optional photo input with name for recipes
 - [ ] Show calculated kcal in add new item and recipe creation
 - [ ] Mean for last 7 days
+- [ ] For performance reasons, a local Svelte store may be used to store food_items.
 - [ ] Setting new LLM API key. Can normal people get the key somewhere?
 - [ ] Prettier interface. Maybe logo on desktop
+- [ ] Read through code, including TODOs
+- [ ] Maybe ask LLM for cleanup
 - [ ] Construct some sort of tutorial (in Readme or in app)
 - [ ] Make a real README.md
 - [ ] Add a license

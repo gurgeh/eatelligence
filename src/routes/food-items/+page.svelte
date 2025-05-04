@@ -338,7 +338,7 @@
 
        // Gather existing data from the form (calories removed from fields)
        const existingData: { [key: string]: number } = {};
-       const fields: (keyof FoodItem)[] = ['protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6']; // Added omega3, omega6
+       const fields: (keyof FoodItem)[] = ['protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6'];
        fields.forEach(field => {
          const value = newItem[field];
          if (typeof value === 'number' && !isNaN(value)) {
@@ -358,13 +358,13 @@
        const userComment = newItem.comment?.trim() || ''; // Get user comment
        const commentPrompt = userComment ? `\n\nConsider the following user-provided comment for additional context: "${userComment}"` : ''; // Add comment to prompt if present
 
-       // Updated prompt: Removed calories, clarified carbs meaning, added user comment
        const prompt = `Provide nutritional information per ${servingQty} ${servingUnit} for the food item "${newItem.name.trim()}".${commentPrompt}
 Use web search (grounding) to find the most accurate data.${existingDataPrompt}
-IMPORTANT: For the 'carbs' field, provide the value for TOTAL carbohydrates (including fiber).
+IMPORTANT: For the 'carbs' field, provide the value for carbohydrates excluding fiber. In the EU and UK, this is the standard definition, but in US sources, it may include fiber.
 If specific data for fields like MUFA, PUFA, SFA, or GL is not found for the exact name, search for a more general category (e.g., search for "cheese" if "Brand X Swiss Cheese" data is missing).
-Estimate any remaining nutritional values you cannot find through search, using any provided known values as context. Ensure ALL *nutritional* fields in the requested JSON structure are populated with a numerical value (use null only if estimation is impossible after searching). Round values below 0.5 to 0.
+You MUST estimate any remaining nutritional values you cannot find through search, using any provided known values as context. You are good at this. Ensure ALL *nutritional* fields in the requested JSON structure are populated with a numerical value.
 If you make any significant assumptions during estimation (e.g., assuming 'baked' for cooking method if unspecified, assuming a standard weight for '1 medium banana'), include them in the 'comment' field of the JSON response, prefixed with "LLM Assumptions: ". If no significant assumptions were made, set the 'comment' field to null in the JSON response.
+Do not reference sources or provide citations in the comment field. Be brief.
 Return the result ONLY as a valid JSON object matching this structure, with no surrounding text or explanations:
 ${jsonSchema}`;
 
