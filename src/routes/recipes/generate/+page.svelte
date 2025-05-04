@@ -371,8 +371,8 @@ ${jsonSchema}`;
             };
           } catch (itemError: any) {
              console.error(`Error processing new ingredient "${name}" (original index ${originalIndex}):`, itemError); // Use originalIndex
-             // Return rejection data, including the originalIndex
-             return { status: 'rejected', reason: itemError.message, originalIndex };
+             // Throw rejection data, including the originalIndex, so Promise.allSettled catches it as rejected
+             throw { originalIndex, reason: itemError instanceof Error ? itemError.message : String(itemError) };
           }
         });
 
@@ -397,6 +397,7 @@ ${jsonSchema}`;
           }
 
           if (result.status === 'fulfilled') {
+              // Type assertion for success payload (adjust if you have a specific type)
               const value = result.value as { originalIndex: number, id: number, multiplier: number, serving_qty: number, serving_unit: string, nutrition: any };
               // Return a *new* object with all updated properties
               return {
@@ -405,17 +406,18 @@ ${jsonSchema}`;
                   multiplier: value.multiplier,
                   serving_qty: value.serving_qty,
                   serving_unit: value.serving_unit,
-                  status: 'done' as const, // Explicitly type as 'done' literal
+                  status: 'done' as const,
                   nutrition: value.nutrition,
                   errorMsg: undefined // Clear any previous error
               };
           } else { // status === 'rejected'
-              const reason = result.reason as { originalIndex: number, reason: string };
+              // Type assertion for the thrown error object
+              const rejectionPayload = result.reason as { originalIndex: number, reason: string };
               // Return a *new* object with error status
               return {
                   ...originalIngredient, // Keep existing properties
-                  status: 'error' as const, // Explicitly type as 'error' literal
-                  errorMsg: reason.reason
+                  status: 'error' as const,
+                  errorMsg: rejectionPayload.reason // Extract the reason string
               };
           }
       });
