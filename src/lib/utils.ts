@@ -6,8 +6,8 @@ import type { FoodItem } from './types';
  * applying Thermic Effect of Food (TEF) adjusted values.
  * Treats null nutrient values as 0.
  *
- * Formula:
- * kcal = (protein * 3) + ((carbs - fibers) * 3.7) + (fibers * 2) + (fat * 9)
+ * Formula (assuming 'carbs' is net carbs, i.e., excluding fiber):
+ * kcal = (protein * 3) + (carbs * 3.7) + (fibers * 2) + (fat * 9)
  *
  * @param item - An object containing nutrient values (can be Partial<FoodItem> or similar).
  * @returns The calculated kcal value, rounded to the nearest whole number. Returns 0 if essential values are missing/invalid.
@@ -20,18 +20,17 @@ export function calculateKcal(item: {
 }): number {
   const protein = item.protein ?? 0;
   const fat = item.fat ?? 0;
-  const carbs = item.carbs ?? 0;
+  const carbs = item.carbs ?? 0; // Assumed to be net carbs (excluding fiber)
   const fibers = item.fibers ?? 0;
 
-  // Ensure digestible carbs are not negative if fibers > carbs (potential data error)
-  const digestibleCarbs = Math.max(0, carbs - fibers);
-
   // Basic check if we have enough data to calculate
+  // Note: `carbs` here is net carbs.
   if (protein === 0 && fat === 0 && carbs === 0 && fibers === 0) {
     return 0;
   }
 
-  const kcal = protein * 3 + digestibleCarbs * 3.7 + fibers * 2 + fat * 9;
+  // Formula uses net carbs directly for its multiplier, and fiber separately.
+  const kcal = protein * 3 + carbs * 3.7 + fibers * 2 + fat * 9;
 
   return Math.round(kcal);
 }

@@ -1,4 +1,4 @@
-# Active Context Summary (May 2, 2025)
+# Active Context Summary (May 10, 2025)
 
 This summary consolidates key decisions and implementation details from recent tasks.
 
@@ -27,7 +27,7 @@ This summary consolidates key decisions and implementation details from recent t
         *   Includes any existing nutritional data from the form as context for the requested serving size.
         *   Instructs the model to return only a valid JSON object matching the required schema, generalizing searches and estimating missing values where necessary.
     *   The returned nutritional data (which is per the specified serving) is saved directly to the database.
-    *   **Prompt Update (May 2, 2025):** The prompt no longer requests `calories` and explicitly asks for *total* carbohydrates (including fiber) for the `carbs` field to ensure correct data for dynamic kcal calculation.
+    *   **Prompt Update (Noted May 2, 2025, verified May 10, 2025):** The prompt no longer requests `calories`. For the `carbs` field, it explicitly asks for carbohydrates *excluding* fiber (net carbs), aligning with EU standards and the dynamic kcal calculation. The `fibers` field is requested separately. This ensures the `carbs` data field correctly represents net carbs.
     *   **Comment Integration & Assumptions (May 3, 2025):**
         *   Switched model to `gemini-2.5-pro-preview-03-25` for potentially better handling of context.
         *   The user's comment from the form is now included in the prompt sent to the LLM for additional context.
@@ -37,8 +37,8 @@ This summary consolidates key decisions and implementation details from recent t
 ## Dynamic Kcal Calculation (May 2, 2025)
 
 *   **Removed Static Field:** The `calories` column was dropped from the `food_items` database table via Supabase migration. The `calories` property was removed from the `FoodItem` type in `src/lib/types.ts`.
-*   **Calculation Logic:** Kcal is now calculated dynamically on the frontend using a TEF-adjusted formula: `kcal = (protein * 3) + ((carbs - fibers) * 3.7) + (fibers * 2) + (fat * 9)`.
-*   **Helper Function:** A `calculateKcal` function was created in `src/lib/utils.ts` to encapsulate this logic. It handles null/undefined nutrient values.
+*   **Calculation Logic (Updated May 10, 2025):** Kcal is calculated dynamically on the frontend. The `carbs` field in data is treated as net carbs (i.e., carbohydrates excluding fiber). The TEF-adjusted formula in `src/lib/utils.ts` is: `kcal = (protein * 3) + (carbs * 3.7) + (fibers * 2) + (fat * 9)`.
+*   **Helper Function:** The `calculateKcal` function in `src/lib/utils.ts` encapsulates this logic and handles null/undefined nutrient values.
 *   **UI Integration:** The `/`, `/food-items`, and `/create-recipe` pages were updated to use `calculateKcal` for displaying kcal values instead of relying on a database field. The input field for calories was removed from the "Create New Food Item" form in `/food-items`.
 
 ## Nutrition Targets (May 2, 2025)
