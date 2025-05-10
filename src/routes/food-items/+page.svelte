@@ -573,6 +573,14 @@ ${jsonSchema}`;
             AI-generated data should be verified.
          </div>
        </div>
+       <!-- Calculated Kcal Display -->
+       <div class="mb-3 pt-2">
+         <p class="text-sm font-medium text-gray-700">Calculated Kcal:
+           <span class="font-bold text-indigo-600">
+             {calculateKcal({ protein: newItem.protein, carbs: newItem.carbs, fibers: newItem.fibers, fat: newItem.fat })}
+           </span>
+         </p>
+       </div>
        <!-- Comment -->
        <div class="mb-3">
          <label for="new-item-comment" class="block text-sm font-medium text-gray-700">Comment (Optional)</label>

@@ -50,15 +50,15 @@
 - [x] Fix Omega-3/6 ratio display bug in LLM recipe generation (`/recipes/generate`: Added dedicated `ratio` util, updated total calculation display, added LLM response validation)
 - [x] Possibility to add ingredients to the LLM recipe list
 - [x] Possibility to modify quantities in the LLM recipe list
-- [ ] Change calorie calculation to new carb field definition: carbs excluding fibers.
+- [x] Change calorie calculation to new carb field definition: carbs excluding fibers.
+- [x] Show calculated kcal in add new item and recipe creation
 - [ ] Authentication (Supabase) and decide on separate food items for each user (yes)
 - [ ] Clear DB
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)
-- [ ] Add optional photo input with name for recipes
-- [ ] Show calculated kcal in add new item and recipe creation
 - [ ] Mean for last 7 days
 - [ ] For performance reasons, a local Svelte store may be used to store food_items.
 - [ ] Setting new LLM API key. Can normal people get the key somewhere?
+- [ ] Add optional photo input with name for recipes
 - [ ] Prettier interface. Maybe logo on desktop
 - [ ] Read through code, including TODOs
 - [ ] Maybe ask LLM for cleanup
