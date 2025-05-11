@@ -60,6 +60,7 @@
     - Implemented `authStore.ts` for Svelte frontend state management.
     - Updated `types.ts` to include `user_id` in relevant interfaces.
 - [x] Clear DB (Test data in `food_items`, `food_log`, `nutrition_targets` cleared after RLS setup)
+- [x] Menu row on mobile is too wide. Maybe icons? Logout only in profile? (Used Lucid icons, responsive display, removed main logout)
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)
 - [ ] Mean for last 7 days
 - [ ] For performance reasons, a local Svelte store may be used to store food_items.

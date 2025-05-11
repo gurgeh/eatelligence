@@ -2,6 +2,32 @@
 
 This summary consolidates key decisions and implementation details from recent tasks.
 
+## Mobile Menu Enhancement (Implemented May 11, 2025)
+
+*   **Objective:** Improve usability of the main navigation menu on mobile devices where it was previously too wide.
+*   **Icon Library:** Switched from attempted `heroicons-svelte` (due to persistent import issues) to `lucide-svelte`.
+    *   Uninstalled `heroicons-svelte`.
+    *   Installed `lucide-svelte`.
+*   **Changes to `src/routes/+layout.svelte`:**
+    *   **Logout Button:** The "Logout" button was removed from the main header navigation. Users will use the "Sign Out" button on the `/profile` page.
+    *   **Icon Implementation:**
+        *   Navigation links ("Log Meal", "Manage Items", "Targets", "Profile") now use icons from `lucide-svelte`.
+        *   Selected icons:
+            *   Log Meal: `CirclePlus`
+            *   Manage Items: `Database`
+            *   Targets: `Goal`
+            *   Profile: `CircleUserRound`
+        *   Text labels on larger screens updated: "Log Meal" to "Log", "Manage Items" to "Foods". "Targets" and "Profile" text labels remain unchanged. `title` attributes on links updated accordingly.
+    *   **Responsive Display & Styling:**
+        *   On small screens (default, less than 1024px wide), only icons are displayed. Links have `p-2` padding for better touch targets.
+        *   On larger screens (`lg:` breakpoint - 1024px and up), icons are displayed alongside their text labels. Links have `lg:p-0` padding. Icon-to-text margin is `lg:ml-1.5`.
+        *   Overall spacing between links on desktop set to `lg:space-x-4`.
+    *   **Active Link Styling (using `$page.url.pathname`):**
+        *   Active link text color: `text-indigo-600`.
+        *   Active link icon size: `28` (inactive icons are `24`), controlled via `size` prop.
+        *   Active link text label: `font-semibold`.
+        *   Non-active links: `text-gray-700`, icon size `24`, normal font weight.
+
 ## Authentication & User-Specific Data (Implemented May 11, 2025)
 
 *   **Provider:** Google OAuth provider enabled in Supabase. User provides Client ID/Secret.
@@ -18,7 +44,7 @@ This summary consolidates key decisions and implementation details from recent t
     *   **`src/routes/+layout.svelte`:**
         *   Integrated `authStore` to manage UI based on authentication state.
         *   Implemented route protection: unauthenticated users are redirected to `/login`.
-        *   Header dynamically shows Login/Logout and Profile links.
+        *   Header dynamically shows Login/Logout and Profile links. (Note: This part was modified by the Mobile Menu Enhancement task).
     *   **`src/lib/types.ts`:** Updated `FoodItem` and `NutritionTarget` interfaces to include the `user_id: string;` field. `FoodLog` already had it.
 *   **Outcome:** Application now supports user accounts via Google Sign-In. Data related to food items, food logs, and nutrition targets is isolated to individual users.
 
