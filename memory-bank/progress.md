@@ -63,6 +63,7 @@
 - [x] Menu row on mobile is too wide. Maybe icons? Logout only in profile? (Used Lucid icons, responsive display, removed main logout)
 - [x] Host on eatelligence.fendrich.se (GitHub Pages)
 - [x] Add npm script "deploy" for GitHub Pages deployment (includes --dotfiles)
+- [x] Is the PWA manifest correct? (Added `display: standalone`, `start_url`, `scope`, `background_color` to manifest in `vite.config.ts`. Added iOS specific tags and `mobile-web-app-capable` meta tag to `app.html`.)
 - [ ] Mean for last 7 days
 - [ ] Non-breaking space for ( 100 g ) in add new item
 - [ ] For performance reasons, a local Svelte store may be used to store food_items.

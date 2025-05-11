@@ -75,6 +75,27 @@ This summary consolidates key decisions and implementation details from recent t
     *   This requires both URLs to be added to the "Additional Redirect URLs" allow list in Supabase Authentication settings, and their respective origins (`http://localhost:5173` or `http://localhost`, and `https://eatelligence.fendrich.se`) to be in Google Cloud Console's "Authorized JavaScript origins".
 *   **Outcome:** Application now supports user accounts via Google Sign-In. Data related to food items, food logs, and nutrition targets is isolated to individual users. OAuth redirects work correctly for both local development and the deployed production site.
 
+## PWA Enhancements & Manifest Link Fix (Implemented May 11, 2025)
+
+*   **Objective:** Improve "Add to Home Screen" behavior and ensure a more app-like experience on Android (including Firefox) and iOS.
+*   **Manifest Updates (`vite.config.ts`):**
+    *   Added `display: 'standalone'` to instruct browsers to open the app in its own window.
+    *   Added `start_url: '/'` to define the application's entry point.
+    *   Added `scope: '/'` to define the URLs considered part of the app.
+    *   Added `background_color: '#ffffff'` for a smoother launch transition.
+*   **HTML Head Updates (`src/app.html`):**
+    *   Added `<meta name="apple-mobile-web-app-capable" content="yes">` for iOS standalone mode.
+    *   Added `<meta name="apple-mobile-web-app-status-bar-style" content="default">` for iOS status bar styling.
+    *   Added `<meta name="apple-mobile-web-app-title" content="Eatelligence">` for the app title on iOS home screens.
+    *   Added `<link rel="apple-touch-icon" href="/icon-192x192.png">` for the iOS home screen icon.
+    *   Added `<meta name="mobile-web-app-capable" content="yes">` for broader compatibility, as suggested by DevTools.
+*   **Manifest Link Injection Fix:**
+    *   Initial attempts to have `vite-plugin-pwa` or `@vite-pwa/sveltekit` automatically inject the `<link rel="manifest"...>` into the HTML output by `adapter-static` were unsuccessful in the build output, despite various configurations.
+    *   Manual injection using `virtual:pwa-info` in `+layout.svelte` worked in dev mode but also failed to appear in the static build.
+    *   **Solution:** The `<link rel="manifest" href="/manifest.webmanifest">` was manually added directly to the `<head>` section of `src/app.html`. This ensures `adapter-static` includes it in all generated pages.
+    *   The `@vite-pwa/sveltekit` plugin (via `SvelteKitPWA` in `vite.config.ts`) remains responsible for generating the `manifest.webmanifest` file and the service worker.
+*   **Type Definitions:** `src/vite-env.d.ts` was updated with `/// <reference types="vite-plugin-pwa/svelte" />`, `/// <reference types="vite-plugin-pwa/info" />`, and `/// <reference types="vite-plugin-pwa/client" />` to support virtual module imports if they are used for other PWA features (though manifest link injection is now manual).
+*   **Outcome:** With the manifest link now hardcoded in `app.html`, the PWA should be correctly recognized by browsers, enabling proper installation and standalone display mode.
 
 ## Core Features & Data Structure
 
