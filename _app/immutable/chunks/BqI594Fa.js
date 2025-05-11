@@ -1,0 +1,1 @@
+function s(t){const r=t.protein??0,n=t.fat??0,c=t.carbs??0,o=t.fibers??0;if(r===0&&n===0&&c===0&&o===0)return 0;const i=r*3+c*3.7+o*2+n*9;return Math.round(i)}function a(t,r){if(isNaN(t)||!isFinite(t))return t;const n=Math.pow(10,r);return Math.round(t*n)/n}function u(t,r){return t==null||r==null||!isFinite(t)||!isFinite(r)||r===0?void 0:`${a(t/r,1)} : 1`}export{s as c,u as r};
