@@ -5,18 +5,20 @@
 		<link rel="icon" href="/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-		<!-- iOS specific PWA tags -->
+		<!-- PWA specific tags -->
+		<meta name="mobile-web-app-capable" content="yes">
 		<meta name="apple-mobile-web-app-capable" content="yes">
 		<meta name="apple-mobile-web-app-status-bar-style" content="default">
 		<meta name="apple-mobile-web-app-title" content="Eatelligence">
 		<link rel="apple-touch-icon" href="/icon-192x192.png">
+		<link rel="manifest" href="/manifest.webmanifest"> <!-- Manually added manifest link -->
 
 		
-		<link rel="modulepreload" href="/_app/immutable/entry/start.CR7MLpZP.js">
-		<link rel="modulepreload" href="/_app/immutable/chunks/C0odXAus.js">
+		<link rel="modulepreload" href="/_app/immutable/entry/start.TpvuOh20.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/vBwGCSse.js">
 		<link rel="modulepreload" href="/_app/immutable/chunks/BRwduGv0.js">
 		<link rel="modulepreload" href="/_app/immutable/chunks/DNdwN7ow.js">
-		<link rel="modulepreload" href="/_app/immutable/entry/app.DViy4t5S.js">
+		<link rel="modulepreload" href="/_app/immutable/entry/app.DSqTeTFO.js">
 		<link rel="modulepreload" href="/_app/immutable/chunks/CttsxjpS.js">
 		<link rel="modulepreload" href="/_app/immutable/chunks/BASCv1CT.js">
 		<link rel="modulepreload" href="/_app/immutable/chunks/CTCU8MtZ.js">
@@ -27,15 +29,15 @@
 		<div style="display: contents">
 			<script>
 				{
-					__sveltekit_m8irdg = {
+					__sveltekit_j6izbl = {
 						base: ""
 					};
 
 					const element = document.currentScript.parentElement;
 
 					Promise.all([
-						import("/_app/immutable/entry/start.CR7MLpZP.js"),
-						import("/_app/immutable/entry/app.DViy4t5S.js")
+						import("/_app/immutable/entry/start.TpvuOh20.js"),
+						import("/_app/immutable/entry/app.DSqTeTFO.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element);
 					});
