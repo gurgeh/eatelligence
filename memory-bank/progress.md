@@ -52,8 +52,14 @@
 - [x] Possibility to modify quantities in the LLM recipe list
 - [x] Change calorie calculation to new carb field definition: carbs excluding fibers.
 - [x] Show calculated kcal in add new item and recipe creation
-- [ ] Authentication (Supabase) and decide on separate food items for each user (yes)
-- [ ] Clear DB
+- [x] Authentication (Supabase) and user-specific data:
+    - Enabled Google Auth provider in Supabase.
+    - Added `user_id` columns (defaulting to `auth.uid()`, `NOT NULL`) to `food_items`, `food_log`, and `nutrition_targets` tables.
+    - Implemented Row Level Security (RLS) policies for these tables to ensure users can only access/modify their own data.
+    - Created frontend components for login (`/login`), profile (`/profile`), and updated main layout (`+layout.svelte`) for route protection and auth UI.
+    - Implemented `authStore.ts` for Svelte frontend state management.
+    - Updated `types.ts` to include `user_id` in relevant interfaces.
+- [x] Clear DB (Test data in `food_items`, `food_log`, `nutrition_targets` cleared after RLS setup)
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)
 - [ ] Mean for last 7 days
 - [ ] For performance reasons, a local Svelte store may be used to store food_items.

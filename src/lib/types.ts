@@ -2,6 +2,7 @@
 
 export interface FoodItem {
   id: number;
+  user_id: string; // Added for user-specific data
   name: string;
   serving_unit: string; // e.g., '100g', '1 dl', '1 portion'
   serving_qty: number; // e.g., 100, 1, 1
@@ -20,10 +21,10 @@ export interface FoodItem {
   created_at: string;
 }
 
-// Add other shared types here as needed, e.g., for FoodLog
+  // Add other shared types here as needed, e.g., for FoodLog
 export interface FoodLog {
     id: number;
-    user_id: string; // Assuming authentication adds this later
+    user_id: string; // This was already here, good.
     food_item_id: number;
     logged_at: string; // ISO 8601 timestamp
     multiplier: number;
@@ -34,6 +35,7 @@ export interface FoodLog {
 // Represents a nutrition target definition
 export interface NutritionTarget {
 	id: string; // uuid from Supabase
+	user_id: string; // Added for user-specific data
 	nutrient_1: string; // The primary nutrient (e.g., 'protein', 'fat', 'omega6')
 	nutrient_2: string | null; // The denominator nutrient for relative targets (e.g., 'calories', 'omega3'), null for absolute
 	min_value: number | null; // Minimum target value (g/kcal or %)

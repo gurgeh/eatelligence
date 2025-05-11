@@ -1,6 +1,26 @@
-# Active Context Summary (May 10, 2025)
+# Active Context Summary (May 11, 2025)
 
 This summary consolidates key decisions and implementation details from recent tasks.
+
+## Authentication & User-Specific Data (Implemented May 11, 2025)
+
+*   **Provider:** Google OAuth provider enabled in Supabase. User provides Client ID/Secret.
+*   **Database Schema:**
+    *   `user_id` (UUID, references `auth.users.id`, `DEFAULT auth.uid()`, `NOT NULL`) column added to `food_items`, `food_log`, and `nutrition_targets` tables.
+*   **Row Level Security (RLS):**
+    *   Enabled for `food_items`, `food_log`, and `nutrition_targets`.
+    *   Policies implemented: `FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id)`. This ensures users can only interact with their own data.
+*   **Data Handling:** Existing test data in the affected tables was cleared after RLS setup.
+*   **Frontend Implementation (SvelteKit):**
+    *   **`src/lib/authStore.ts`:** Created a Svelte store to manage authentication state (user, session, loading, error), subscribing to Supabase auth changes.
+    *   **`src/routes/login/+page.svelte`:** New page with a "Sign in with Google" button. Redirects to home if already logged in.
+    *   **`src/routes/profile/+page.svelte`:** New page displaying logged-in user's email and a "Sign Out" button.
+    *   **`src/routes/+layout.svelte`:**
+        *   Integrated `authStore` to manage UI based on authentication state.
+        *   Implemented route protection: unauthenticated users are redirected to `/login`.
+        *   Header dynamically shows Login/Logout and Profile links.
+    *   **`src/lib/types.ts`:** Updated `FoodItem` and `NutritionTarget` interfaces to include the `user_id: string;` field. `FoodLog` already had it.
+*   **Outcome:** Application now supports user accounts via Google Sign-In. Data related to food items, food logs, and nutrition targets is isolated to individual users.
 
 ## Core Features & Data Structure
 
@@ -43,8 +63,8 @@ This summary consolidates key decisions and implementation details from recent t
 
 ## Nutrition Targets (May 2, 2025)
 
-*   **Database:** Created `nutrition_targets` table (via Supabase migration) with columns: `id` (uuid PK), `nutrient_1` (text), `nutrient_2` (text, nullable), `min_value` (numeric, nullable), `max_value` (numeric, nullable). Added `UNIQUE(nutrient_1, nutrient_2)` constraint.
-*   **Type Definition:** Added `NutritionTarget` interface to `src/lib/types.ts`.
+*   **Database:** Created `nutrition_targets` table (via Supabase migration) with columns: `id` (uuid PK), `nutrient_1` (text), `nutrient_2` (text, nullable), `min_value` (numeric, nullable), `max_value` (numeric, nullable). Added `UNIQUE(nutrient_1, nutrient_2)` constraint. (Now also includes `user_id`).
+*   **Type Definition:** Added `NutritionTarget` interface to `src/lib/types.ts`. (Now also includes `user_id`).
 *   **Settings UI (`/settings/targets`):**
     *   Created new page `src/routes/settings/targets/+page.svelte`.
     *   Allows adding/editing/deleting targets.
