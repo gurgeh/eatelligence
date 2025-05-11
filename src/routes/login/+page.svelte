@@ -3,6 +3,7 @@
   import authStore from '$lib/authStore';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { dev } from '$app/environment';
 
   let loading = false;
   let errorMsg: string | null = null;
@@ -11,8 +12,18 @@
     loading = true;
     errorMsg = null;
     try {
+      // Define your redirect URLs
+      const developmentRedirectUrl = 'http://localhost:5173';
+      const productionRedirectUrl = 'https://eatelligence.fendrich.se';
+
+      // Determine the correct redirect URL based on the environment
+      const redirectTo = dev ? developmentRedirectUrl : productionRedirectUrl;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
+        options: {
+          redirectTo: redirectTo
+        }
       });
       if (error) {
         console.error('Error signing in with Google:', error);

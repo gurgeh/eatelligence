@@ -59,14 +59,22 @@ This summary consolidates key decisions and implementation details from recent t
 *   **Data Handling:** Existing test data in the affected tables was cleared after RLS setup.
 *   **Frontend Implementation (SvelteKit):**
     *   **`src/lib/authStore.ts`:** Created a Svelte store to manage authentication state (user, session, loading, error), subscribing to Supabase auth changes.
-    *   **`src/routes/login/+page.svelte`:** New page with a "Sign in with Google" button. Redirects to home if already logged in.
+    *   **`src/routes/login/+page.svelte`:** New page with a "Sign in with Google" button. Redirects to home if already logged in. (See "Environment-Specific Redirects for OAuth" below for recent changes).
     *   **`src/routes/profile/+page.svelte`:** New page displaying logged-in user's email and a "Sign Out" button.
     *   **`src/routes/+layout.svelte`:**
         *   Integrated `authStore` to manage UI based on authentication state.
         *   Implemented route protection: unauthenticated users are redirected to `/login`.
         *   Header dynamically shows Login/Logout and Profile links. (Note: This part was modified by the Mobile Menu Enhancement task).
     *   **`src/lib/types.ts`:** Updated `FoodItem` and `NutritionTarget` interfaces to include the `user_id: string;` field. `FoodLog` already had it.
-*   **Outcome:** Application now supports user accounts via Google Sign-In. Data related to food items, food logs, and nutrition targets is isolated to individual users.
+*   **Environment-Specific Redirects for OAuth (Implemented May 11, 2025):**
+    *   To support OAuth (Google Sign-In) in both local development and production, the `signInWithOAuth` call in `src/routes/login/+page.svelte` was updated.
+    *   It now uses `import { dev } from '$app/environment';` to determine the current environment.
+    *   The `redirectTo` option in `supabase.auth.signInWithOAuth` is dynamically set:
+        *   Development: `http://localhost:5173`
+        *   Production: `https://eatelligence.fendrich.se`
+    *   This requires both URLs to be added to the "Additional Redirect URLs" allow list in Supabase Authentication settings, and their respective origins (`http://localhost:5173` or `http://localhost`, and `https://eatelligence.fendrich.se`) to be in Google Cloud Console's "Authorized JavaScript origins".
+*   **Outcome:** Application now supports user accounts via Google Sign-In. Data related to food items, food logs, and nutrition targets is isolated to individual users. OAuth redirects work correctly for both local development and the deployed production site.
+
 
 ## Core Features & Data Structure
 
