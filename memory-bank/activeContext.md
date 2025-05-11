@@ -2,6 +2,26 @@
 
 This summary consolidates key decisions and implementation details from recent tasks.
 
+## Deployment to GitHub Pages (Implemented May 11, 2025)
+
+*   **Objective:** Host the Eatelligence application on the custom domain `eatelligence.fendrich.se`.
+*   **Platform Switch:** Moved from the initial idea of using a Google Cloud Storage bucket to GitHub Pages for simplicity and cost-effectiveness, as the project is already hosted on GitHub.
+*   **Custom Domain:** The site is configured to be served from `eatelligence.fendrich.se`.
+*   **Deployment Method:**
+    *   The `gh-pages` CLI tool is used to deploy the static build output.
+    *   Command: `npx gh-pages -d build --dotfiles`
+    *   The `--dotfiles` flag is crucial for including necessary dotfiles like `.nojekyll`.
+*   **Required Files for GitHub Pages:**
+    *   **`static/CNAME`:** A file containing `eatelligence.fendrich.se` must be present in the `static` directory to be included in the build output. This file ensures GitHub Pages maps the custom domain correctly.
+    *   **`static/.nojekyll`:** An empty file that must be present in the `static` directory. This file tells GitHub Pages to bypass Jekyll processing, which is essential for SvelteKit/Vite projects as Jekyll might otherwise ignore the `_app` directory.
+*   **NPM Deploy Script:**
+    *   To simplify deployment, a script was added to `package.json`:
+        ```json
+        "deploy": "npm run build && npx gh-pages -d build --dotfiles"
+        ```
+    *   Deployment can now be done via `npm run deploy`.
+*   **HTTPS:** "Enforce HTTPS" is enabled in the GitHub Pages settings for the custom domain, providing free SSL.
+
 ## Mobile Menu Enhancement (Implemented May 11, 2025)
 
 *   **Objective:** Improve usability of the main navigation menu on mobile devices where it was previously too wide.

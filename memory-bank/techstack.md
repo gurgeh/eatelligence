@@ -5,8 +5,9 @@ The Supabase project ID is in ./.env
 
 **Frontend Framework:** SvelteKit
 **CSS Framework:** Tailwind CSS
+**Hosting Platform:** GitHub Pages
 
-We chose SvelteKit for its modern approach, performance focus (compiling to vanilla JS), and suitability for building SPAs that interact directly with Supabase. SvelteKit's `adapter-static` will be used to build the application for static hosting (e.g., GCP bucket).
+We chose SvelteKit for its modern approach, performance focus (compiling to vanilla JS), and suitability for building SPAs that interact directly with Supabase. SvelteKit's `adapter-static` is used to build the application for static hosting on GitHub Pages.
 
 Tailwind CSS was chosen for its utility-first approach, enabling rapid development and responsive design.
 
