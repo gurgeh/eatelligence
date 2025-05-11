@@ -63,6 +63,7 @@
 - [x] Menu row on mobile is too wide. Maybe icons? Logout only in profile? (Used Lucid icons, responsive display, removed main logout)
 - [ ] Host on eatelligence.fendrich.se (GCP bucket)
 - [ ] Mean for last 7 days
+- [ ] Non-breaking space for ( 100 g ) in add new item
 - [ ] For performance reasons, a local Svelte store may be used to store food_items.
 - [ ] Setting new LLM API key. Can normal people get the key somewhere?
 - [ ] Add optional photo input with name for recipes
