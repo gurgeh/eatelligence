@@ -103,12 +103,28 @@
 	const logsPerPage = 50; // Number of logs to fetch per page
 	let currentPage = 0; // Current page index for pagination
 
+	// --- 7-Day Average State ---
+	let last7DaysLogs: FoodLog[] = [];
+	let loading7DayLogs = true;
+	let error7DayLogs: string | null = null;
+	let sevenDayAverages: NutrientTotals & { ratio?: string; daysWithLogs: number } | null = null; // Store calculated averages
+
 	// --- Inline Editing State ---
 	let editingLogId: number | null = null;
 	let editingProperty: 'multiplier' | 'timestamp' | null = null;
 	let editingValue: string | number = ''; // Use string to accommodate datetime-local
 
 	// --- Helper Functions ---
+
+	// Get the date string for N days ago from today
+	function getDateNDaysAgo(days: number): string {
+		const date = new Date();
+		date.setDate(date.getDate() - days);
+		const year = date.getFullYear();
+		const month = (date.getMonth() + 1).toString().padStart(2, '0');
+		const day = date.getDate().toString().padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
 
 	// Timestamp formatter - Now only shows HH:mm
 	function formatTimestampForDisplay(isoString: string): string {
@@ -286,6 +302,77 @@
 	}
 
 	// --- Data Fetching ---
+
+	async function fetchLast7DaysLogData() {
+		loading7DayLogs = true;
+		error7DayLogs = null;
+		last7DaysLogs = []; // Clear previous data
+
+		const sevenDaysAgo = getDateNDaysAgo(6); // Start of the 7-day period (inclusive)
+		const todayEnd = new Date(); // Use current time as end boundary for today
+		todayEnd.setHours(23, 59, 59, 999); // Set to end of today
+
+		try {
+			const { data, error } = await supabase
+				.from('food_log')
+				.select(
+					`
+					id,
+					logged_at,
+					multiplier,
+					food_item_id,
+					food_items (
+						id, name, protein, fat, carbs, fibers, sugar, mufa, pufa, sfa, gl, omega3, omega6
+					)
+				`
+				)
+				.gte('logged_at', `${sevenDaysAgo}T00:00:00.000Z`) // From start of 7 days ago (UTC)
+				.lte('logged_at', todayEnd.toISOString()) // To end of today (UTC)
+				.order('logged_at', { ascending: false }); // Order doesn't strictly matter for averages but keep consistent
+
+			if (error) throw error;
+
+			// Process data similar to fetchRecentLogs but without pagination logic
+			last7DaysLogs = data
+				? data.map((log) => {
+						const relatedFoodItem = log.food_items as any;
+						return {
+							id: log.id,
+							logged_at: log.logged_at,
+							multiplier: log.multiplier,
+							food_item_id: log.food_item_id,
+							food_items: relatedFoodItem
+								? {
+										id: relatedFoodItem.id,
+										name: relatedFoodItem.name,
+										protein: relatedFoodItem.protein,
+										fat: relatedFoodItem.fat,
+										carbs: relatedFoodItem.carbs,
+										fibers: relatedFoodItem.fibers,
+										sugar: relatedFoodItem.sugar,
+										mufa: relatedFoodItem.mufa,
+										pufa: relatedFoodItem.pufa,
+										sfa: relatedFoodItem.sfa,
+										gl: relatedFoodItem.gl,
+										omega3: relatedFoodItem.omega3,
+										omega6: relatedFoodItem.omega6,
+										// serving_qty/unit not needed for average calculation
+									}
+								: null
+						};
+					})
+				: [];
+
+		} catch (err: any) {
+			console.error('Error fetching last 7 days logs:', err);
+			error7DayLogs = err.message || 'Failed to fetch 7-day log data.';
+			last7DaysLogs = [];
+		} finally {
+			loading7DayLogs = false;
+			// Calculation will happen in the reactive block
+		}
+	}
+
 
 	async function fetchNutritionTargets() {
 		loadingTargets = true;
@@ -542,15 +629,83 @@
 	// Fetch initial data on mount
 	onMount(async () => {
 		// Fetch logs first, then process
-		await fetchRecentLogs(); // Already calls processLogsForDisplay on success
-		await fetchAllFoodItems();
-		await fetchNutritionTargets(); // Add this call
+		await Promise.all([
+			fetchRecentLogs(), // Already calls processLogsForDisplay on success
+			fetchAllFoodItems(),
+			fetchNutritionTargets(),
+			fetchLast7DaysLogData() // Fetch 7-day data
+		]);
 	});
 
-	// Re-process logs if recentLogs array changes (e.g., after add/delete/update)
-	// Ensure loadingLogs is false to prevent processing incomplete data during fetch
+	// Re-process logs for main display if recentLogs array changes
 	$: if (recentLogs && !loadingLogs) {
 		processLogsForDisplay();
+	}
+
+	// --- 7-Day Average Calculation ---
+	$: if (last7DaysLogs && !loading7DayLogs) {
+		const nutrientKeys = [
+			'protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6'
+		] as const;
+
+		const dailyTotalsMap: { [date: string]: NutrientTotals } = {};
+
+		// Calculate daily totals for the 7-day period
+		for (const log of last7DaysLogs) {
+			if (!log.food_items) continue; // Skip logs without item data
+
+			const dateStr = getLocalDateString(log.logged_at);
+			if (!dailyTotalsMap[dateStr]) {
+				// Initialize totals for this day
+				dailyTotalsMap[dateStr] = Object.fromEntries(nutrientKeys.map(key => [key, 0])) as NutrientTotals;
+			}
+
+			nutrientKeys.forEach((key) => {
+				const value = log.food_items?.[key];
+				if (typeof value === 'number') {
+					// Ensure the key exists before adding (should always exist due to initialization)
+					if (dailyTotalsMap[dateStr][key] !== undefined) {
+						dailyTotalsMap[dateStr][key]! += value * log.multiplier;
+					}
+				}
+			});
+		}
+
+		const daysWithLogs = Object.keys(dailyTotalsMap).length;
+
+		if (daysWithLogs > 0) {
+			const summedTotals: NutrientTotals = Object.fromEntries(nutrientKeys.map(key => [key, 0])) as NutrientTotals;
+
+			// Sum totals across all days with logs
+			for (const dateStr in dailyTotalsMap) {
+				nutrientKeys.forEach((key) => {
+					if (summedTotals[key] !== undefined && dailyTotalsMap[dateStr][key] !== undefined) {
+						summedTotals[key]! += dailyTotalsMap[dateStr][key]!;
+					}
+				});
+			}
+
+			// Calculate averages
+			const averages: NutrientTotals = Object.fromEntries(
+				nutrientKeys.map(key => [key, (summedTotals[key] ?? 0) / daysWithLogs])
+			) as NutrientTotals;
+
+			// Calculate average ratio
+			let avgRatio = '-';
+			const avgOmega3 = averages.omega3 ?? 0;
+			const avgOmega6 = averages.omega6 ?? 0;
+			if (avgOmega3 > 0) {
+				avgRatio = `${(avgOmega6 / avgOmega3).toFixed(1)}:1`;
+			} else if (avgOmega6 > 0) {
+				avgRatio = `∞:1`;
+			}
+
+			sevenDayAverages = { ...averages, ratio: avgRatio, daysWithLogs: daysWithLogs };
+
+		} else {
+			// No logs in the last 7 days
+			sevenDayAverages = null;
+		}
 	}
 
 	// --- Search Logic ---
@@ -700,6 +855,46 @@
 
 	<!-- Added margin-top to push content below the potentially overlapping search results -->
 	<hr class="my-6 mt-12" />
+
+	<!-- 7-Day Average Section -->
+	<div class="mb-6 p-4 border rounded-md bg-gray-100">
+		<h2 class="text-lg font-semibold mb-2">7-Day Average Intake</h2>
+		{#if loading7DayLogs}
+			<p class="text-sm text-gray-600">Calculating averages...</p>
+		{:else if error7DayLogs}
+			<p class="text-sm text-red-600">Error calculating averages: {error7DayLogs}</p>
+		{:else if sevenDayAverages}
+			<p class="text-xs text-gray-500 mb-2">Based on {sevenDayAverages.daysWithLogs} day(s) with logs in the last 7 days.</p>
+			<div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs">
+				<!-- Calculated Kcal -->
+				<span class="bg-blue-200 text-blue-900 px-1 py-0.5 rounded-md font-medium">
+					{Math.round(calculateKcal(sevenDayAverages))} C
+				</span>
+				<!-- Protein, Fat, Carbs -->
+				<span class="bg-green-200 text-green-900 px-1 py-0.5 rounded-md font-medium">
+					{Math.round(sevenDayAverages.protein ?? 0)}, {Math.round(sevenDayAverages.fat ?? 0)}, {Math.round(sevenDayAverages.carbs ?? 0)} <span class="text-green-700 text-[0.65rem]">PFC</span>
+				</span>
+				<!-- Fibers, Sugar -->
+				<span class="bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded-md font-medium">
+					{Math.round(sevenDayAverages.fibers ?? 0)}, {Math.round(sevenDayAverages.sugar ?? 0)} <span class="text-yellow-700 text-[0.65rem]">FiS</span>
+				</span>
+				<!-- MUFA, PUFA, SFA -->
+				<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium">
+					{Math.round(sevenDayAverages.mufa ?? 0)}, {Math.round(sevenDayAverages.pufa ?? 0)}, {Math.round(sevenDayAverages.sfa ?? 0)} <span class="text-orange-700 text-[0.65rem]">MPS</span>
+				</span>
+				<!-- Omega Ratio -->
+				<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium" title="Average Omega-6:Omega-3 Ratio">
+					{sevenDayAverages.ratio ?? '-'} <span class="text-orange-700 text-[0.65rem]">6:3</span>
+				</span>
+				<!-- GL -->
+				<span class="bg-purple-200 text-purple-900 px-1 py-0.5 rounded-md font-medium">
+					{Math.round(sevenDayAverages.gl ?? 0)} GL
+				</span>
+			</div>
+		{:else}
+			<p class="text-sm text-gray-600">No log data found for the last 7 days.</p>
+		{/if}
+	</div>
 
 	<!-- Recent Logs Section -->
 	<div>

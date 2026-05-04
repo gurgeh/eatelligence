@@ -64,14 +64,20 @@
 - [x] Host on eatelligence.fendrich.se (GitHub Pages)
 - [x] Add npm script "deploy" for GitHub Pages deployment (includes --dotfiles)
 - [x] Is the PWA manifest correct? (Added `display: standalone`, `start_url`, `scope`, `background_color` to manifest in `vite.config.ts`. Added iOS specific tags and `mobile-web-app-capable` meta tag to `app.html`.)
-- [ ] Mean for last 7 days
-- [ ] Non-breaking space for ( 100 g ) in add new item
-- [ ] For performance reasons, a local Svelte store may be used to store food_items.
 - [ ] Setting new LLM API key. Can normal people get the key somewhere?
-- [ ] Add optional photo input with name for recipes
-- [ ] Prettier interface. Maybe logo on desktop
-- [ ] Read through code, including TODOs
-- [ ] Maybe ask LLM for cleanup
+- [ ] Prettier interface. Maybe logo? Ask o3, given screenshots.
+- [x] Mean for last 7 days
+- [ ] Non-breaking space for ( 100 g ) in add new item
 - [ ] Construct some sort of tutorial (in Readme or in app)
 - [ ] Make a real README.md
 - [ ] Add a license
+
+From my testing:
+- [ ] "1recipe serving" too long
+- [ ] Probably other ratios in daily/weekly display
+
+Ideas:
+- [ ] For performance reasons, a local Svelte store may be used to store food_items.
+- [ ] Add optional photo input with name for recipes
+- [ ] Read through code, including TODOs
+- [ ] Maybe ask LLM for cleanup

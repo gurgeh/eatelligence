@@ -1,6 +1,35 @@
-# Active Context Summary (May 11, 2025)
+# Active Context Summary (May 13, 2025)
 
 This summary consolidates key decisions and implementation details from recent tasks.
+
+## 7-Day Average Intake (Implemented May 13, 2025)
+
+*   **Objective:** Display the average daily nutritional intake calculated over the most recent 7 days on the main log page (`/`).
+*   **Implementation in `src/routes/+page.svelte`:**
+    *   **State Variables:**
+        *   `last7DaysLogs: FoodLog[]`: Stores log entries from the last 7 days.
+        *   `loading7DayLogs: boolean`: Tracks loading state for this data.
+        *   `error7DayLogs: string | null`: Stores any error during fetching.
+        *   `sevenDayAverages: NutrientTotals & { ratio?: string; daysWithLogs: number } | null`: Stores the calculated averages and the count of days with logs.
+    *   **Data Fetching (`fetchLast7DaysLogData` function):**
+        *   Queries the `food_log` table for entries where `logged_at` is within the last 7 days (from 6 days ago 00:00:00 UTC to today 23:59:59 UTC).
+        *   Selects nutrient data by joining with `food_items`.
+        *   Called on mount via `Promise.all` alongside other initial data fetches.
+    *   **Helper Function (`getDateNDaysAgo`):**
+        *   Created to get a `YYYY-MM-DD` string for N days ago, used to define the start of the 7-day period.
+    *   **Calculation Logic (Reactive Block `$: if (last7DaysLogs && !loading7DayLogs)`):**
+        *   Groups fetched `last7DaysLogs` by date using `getLocalDateString`.
+        *   Calculates daily totals for each nutrient for each day within the 7-day window that has log entries.
+        *   Sums these daily totals for each nutrient.
+        *   Divides the summed totals by the number of days that *actually had log entries* within the 7-day period.
+        *   Calculates the average Omega-6 to Omega-3 ratio.
+        *   Stores the results in the `sevenDayAverages` state variable. If no logs are found in the period, `sevenDayAverages` is set to `null`.
+    *   **Display:**
+        *   A new section titled "7-Day Average Intake" is added above the "Recent Logs" section.
+        *   Displays loading/error states.
+        *   If averages are available, it shows the count of days with logs used for the calculation.
+        *   Displays key average nutrient values (Kcal, PFC, FiS, MPS, 6:3 Ratio, GL) using styled badges similar to daily summaries.
+        *   If no data, a "No log data found for the last 7 days" message is shown.
 
 ## Deployment to GitHub Pages (Implemented May 11, 2025)
 
