@@ -165,7 +165,7 @@
     const newFoodItemData: Omit<FoodItem, 'id' | 'created_at'> = {
         name: recipeName.trim(),
         serving_qty: 1, // Recipe is one serving by definition here
-        serving_unit: 'recipe serving',
+        serving_unit: 'portion',
         // calories: totals.calories ?? 0, // Removed calories
         protein: totals.protein ?? 0,
         fat: totals.fat ?? 0,
