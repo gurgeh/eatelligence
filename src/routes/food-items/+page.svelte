@@ -4,7 +4,7 @@
   import Fuse from 'fuse.js';
   import { tick } from 'svelte';
   import type { FoodItem } from '$lib/types';
-  import { GoogleGenAI } from '@google/genai';
+  import { GoogleGenAI, Type } from '@google/genai';
   import { calculateKcal } from '$lib/utils';
   import { loadGeminiKey, saveGeminiKey } from '$lib/geminiKey';
 
@@ -309,21 +309,6 @@
         const genAI = new GoogleGenAI({ apiKey: geminiApiKey });
         // Remove incorrect getGenerativeModel call
 
-        // Define the desired JSON structure and prompt (calories removed)
-       const jsonSchema = `{
-         "protein": number | null,
-         "fat": number | null,
-         "carbs": number | null,
-         "fibers": number | null,
-         "sugar": number | null,
-         "mufa": number | null,
-         "pufa": number | null,
-         "sfa": number | null,
-         "gl": number | null,
-         "omega3": number | null, 
-         "omega6": number | null,
-         "comment"?: string | null // Keep comment optional
-       }`;
 
        // Gather existing data from the form (calories removed from fields)
        const existingData: { [key: string]: number } = {};
@@ -351,54 +336,49 @@
 Use web search (grounding) to find the most accurate data.${existingDataPrompt}
 IMPORTANT: For the 'carbs' field, provide the value for carbohydrates excluding fiber. In the EU and UK, this is the standard definition, but in US sources, it may include fiber.
 If specific data for fields like MUFA, PUFA, SFA, or GL is not found for the exact name, search for a more general category (e.g., search for "cheese" if "Brand X Swiss Cheese" data is missing).
-You MUST estimate any remaining nutritional values you cannot find through search, using any provided known values as context. You are good at this. Ensure ALL *nutritional* fields in the requested JSON structure are populated with a numerical value.
-If you make any significant assumptions during estimation (e.g., assuming 'baked' for cooking method if unspecified, assuming a standard weight for '1 medium banana'), include them in the 'comment' field of the JSON response, prefixed with "LLM Assumptions: ". If no significant assumptions were made, set the 'comment' field to null in the JSON response.
-Do not reference sources or provide citations in the comment field. Be brief.
-Return the result ONLY as a valid JSON object matching this structure, with no surrounding text or explanations:
-${jsonSchema}`;
+You MUST estimate any remaining nutritional values you cannot find through search, using any provided known values as context. You are good at this. Ensure ALL nutritional fields are populated with a numerical value.
+If you make any significant assumptions during estimation (e.g., assuming 'baked' for cooking method if unspecified, assuming a standard weight for '1 medium banana'), include them in the 'comment' field prefixed with "LLM Assumptions: ". If no significant assumptions were made, set 'comment' to null.
+Do not reference sources or provide citations in the comment field. Be brief.`;
 
-       // Correct API call using 'config' for tools, access text via candidates
        const result = await genAI.models.generateContent({
-         model: "gemini-2.5-pro-preview-03-25", // <-- Switched to Pro model as requested
+         model: "gemini-3.5-flash",
          contents: [{ role: "user", parts: [{ text: prompt }] }],
-         config: { // <-- Use 'config' based on user example
-           tools: [{ googleSearch: {} }], // Enable grounding tool
-           thinkingConfig: {
-             includeThoughts: false,
+         config: {
+           tools: [{ googleSearch: {} }],
+           thinkingConfig: { includeThoughts: false },
+           responseMimeType: 'application/json',
+           responseSchema: {
+             type: Type.OBJECT,
+             properties: {
+               protein: { type: Type.NUMBER, nullable: true },
+               fat: { type: Type.NUMBER, nullable: true },
+               carbs: { type: Type.NUMBER, nullable: true },
+               fibers: { type: Type.NUMBER, nullable: true },
+               sugar: { type: Type.NUMBER, nullable: true },
+               mufa: { type: Type.NUMBER, nullable: true },
+               pufa: { type: Type.NUMBER, nullable: true },
+               sfa: { type: Type.NUMBER, nullable: true },
+               gl: { type: Type.NUMBER, nullable: true },
+               omega3: { type: Type.NUMBER, nullable: true },
+               omega6: { type: Type.NUMBER, nullable: true },
+               comment: { type: Type.STRING, nullable: true },
+             },
+             required: ['protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6'],
            },
          },
        });
 
-       // Access response text via candidates array
        const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
        if (!responseText) {
-         console.error("No text found in Gemini response:", result);
          throw new Error("AI response did not contain text.");
        }
 
-       // Log the raw response for debugging
-       console.log('Raw Gemini Response:', responseText); 
-
-       // Attempt to parse the JSON response (Robust extraction added)
        let nutritionData: Partial<FoodItem>;
-       let match: RegExpMatchArray | null = null; // Declare match outside the try block
        try {
-         // Revised Regex: Find the last potential JSON object (greedy match)
-         const jsonRegex = /.*(\{[\s\S]*\})/s; // 's' flag allows '.' to match newlines
-         match = responseText.match(jsonRegex); // Assign inside the try block
-
-         if (!match || !match[1]) {
-           console.error("Could not find JSON object using regex in response:", responseText);
-           throw new Error("AI response did not contain a recognizable JSON object structure.");
-         }
-
-         const jsonString = match[1];
-         nutritionData = JSON.parse(jsonString);
-
+         nutritionData = JSON.parse(responseText);
        } catch (parseError) {
-         console.error("Failed to parse extracted JSON:", parseError, "\nExtracted Text:", match ? match[1] : 'N/A', "\nOriginal Response Text:", responseText);
-         // Keep the original error message but provide more context
-         throw new Error("AI response contained JSON, but it was invalid or couldn't be extracted correctly.");
+         console.error("Failed to parse Gemini JSON response:", parseError, "\nResponse:", responseText);
+         throw new Error("AI returned invalid JSON.");
        }
 
        // Update newItem state, converting nulls from JSON if necessary (calories removed)

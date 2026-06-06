@@ -2,7 +2,7 @@
   import { supabase } from '$lib/supabaseClient';
   import type { FoodItem } from '$lib/types';
   import { onMount, tick } from 'svelte';
-  import { GoogleGenAI } from '@google/genai';
+  import { GoogleGenAI, Type } from '@google/genai';
   import { calculateKcal, ratio } from '$lib/utils';
   import Fuse, { type FuseResult } from 'fuse.js';
   import NutrientBadges from '$lib/components/NutrientBadges.svelte';
@@ -35,29 +35,42 @@
     const standardQty = standardUnit === 'g' ? 100 : 1;
     const multiplier = quantity / standardQty;
 
-    const jsonSchema = `{
-      "protein": number | null, "fat": number | null, "carbs": number | null,
-      "fibers": number | null, "sugar": number | null, "mufa": number | null,
-      "pufa": number | null, "sfa": number | null, "gl": number | null,
-      "omega3": number | null, "omega6": number | null, "comment"?: string | null
-    }`;
-    const prompt = `Provide nutritional information per ${standardQty} ${standardUnit} for the food item "${name}". For 'carbs', report carbohydrates excluding fiber. If sources do not provide a value, you MUST estimate it from best guess. If assumptions are needed, include only the most important ones in the 'comment' field prefixed with "Assumptions: ". Be brief. Do not include source references or citations. Return only a valid JSON object matching this structure:\n${jsonSchema}`;
+    const prompt = `Provide nutritional information per ${standardQty} ${standardUnit} for the food item "${name}". For 'carbs', report carbohydrates excluding fiber. If sources do not provide a value, you MUST estimate it from best guess. If assumptions are needed, include only the most important ones in the 'comment' field prefixed with "Assumptions: ". Be brief. Do not include source references or citations.`;
 
     const result = await genAI.models.generateContent({
-      model: "gemini-2.5-pro-preview-03-25",
+      model: "gemini-3.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { tools: [{ googleSearch: {} }], thinkingConfig: { includeThoughts: false } },
+      config: {
+        tools: [{ googleSearch: {} }],
+        thinkingConfig: { includeThoughts: false },
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            protein: { type: Type.NUMBER, nullable: true },
+            fat: { type: Type.NUMBER, nullable: true },
+            carbs: { type: Type.NUMBER, nullable: true },
+            fibers: { type: Type.NUMBER, nullable: true },
+            sugar: { type: Type.NUMBER, nullable: true },
+            mufa: { type: Type.NUMBER, nullable: true },
+            pufa: { type: Type.NUMBER, nullable: true },
+            sfa: { type: Type.NUMBER, nullable: true },
+            gl: { type: Type.NUMBER, nullable: true },
+            omega3: { type: Type.NUMBER, nullable: true },
+            omega6: { type: Type.NUMBER, nullable: true },
+            comment: { type: Type.STRING, nullable: true },
+          },
+          required: ['protein', 'fat', 'carbs', 'fibers', 'sugar', 'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6'],
+        },
+      },
     });
 
     const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!responseText) throw new Error("AI response for nutrition did not contain text.");
 
-    const match = responseText.match(/.*(\{[\s\S]*\})/s);
-    if (!match?.[1]) throw new Error("AI nutrition response JSON structure not found.");
-
     let nutritionData: Partial<FoodItem>;
     try {
-      nutritionData = JSON.parse(match[1]);
+      nutritionData = JSON.parse(responseText);
     } catch {
       throw new Error("AI nutrition response JSON invalid.");
     }
@@ -268,11 +281,6 @@
         .map(item => `ID: ${item.id}, Name: ${item.name}, Serving: ${item.serving_qty || 'N/A'} ${item.serving_unit || ''}`)
         .join('\n');
 
-      const jsonSchema = `[
-        { "name": string, "quantity": number, "unit": "g" | "dl" }, // For new items
-        { "id": number, "multiplier": number } // For matched existing items
-      ]`;
-
       const prompt = `Given the recipe name "${recipeName}" ${userComment ? `and comment "${userComment}"` : ''}, identify the main ingredients and their quantities (in grams 'g' or deciliters 'dl').
 Focus *only* on ingredients that significantly contribute to the recipe's total calories and macronutrient profile (protein, fat, carbohydrates). Exclude small amounts of herbs, spices, flavorings (like garlic, salt, pepper, small amounts of chili), water, and other non-caloric or very low-calorie items.
 Compare these ingredients against the following list of existing food items:
@@ -280,41 +288,44 @@ Compare these ingredients against the following list of existing food items:
 ${existingItemsString}
 --- END EXISTING ITEMS ---
 
-If an ingredient closely matches an existing item by name, use its ID and estimate a multiplier relative to its defined serving size.
-If an ingredient does not match, provide its name (use simple, common names like "Flour" instead of specific types which are almost the same), quantity, and unit ('g' or 'dl'). Prioritize 'g' for solids and 'dl' for liquids where appropriate.
-
-Return the result ONLY as a valid JSON array matching this structure, with no surrounding text or explanations:
-${jsonSchema}`;
+If an ingredient closely matches an existing item by name, return an object with its id and a multiplier relative to its defined serving size.
+If an ingredient does not match, return an object with its name (use simple, common names like "Flour"), quantity, and unit ('g' or 'dl'). Prioritize 'g' for solids and 'dl' for liquids where appropriate.`;
 
       // 3. Call Gemini API
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey });
       const result = await genAI.models.generateContent({
-         model: "gemini-2.5-pro-preview-03-25",
+         model: "gemini-3.5-flash",
          contents: [{ role: "user", parts: [{ text: prompt }] }],
-         // config: { // Grounding disabled for this call
-         //   tools: [{ googleSearch: {} }],
-         //   thinkingConfig: { includeThoughts: false },
-         // },
+         config: {
+           responseMimeType: 'application/json',
+           responseSchema: {
+             type: Type.ARRAY,
+             items: {
+               type: Type.OBJECT,
+               properties: {
+                 name: { type: Type.STRING, nullable: true },
+                 quantity: { type: Type.NUMBER, nullable: true },
+                 unit: { type: Type.STRING, nullable: true },
+                 id: { type: Type.INTEGER, nullable: true },
+                 multiplier: { type: Type.NUMBER, nullable: true },
+               },
+             },
+           },
+         },
        });
 
       const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
       if (!responseText) {
         throw new Error("AI response did not contain text.");
       }
-      console.log('Raw Gemini Response (List):', responseText);
 
       // 4. Parse JSON Response
       let parsedIngredients: any[];
       try {
-        const jsonRegex = /.*(\[[\s\S]*\])/s; // Find last potential JSON array
-        const match = responseText.match(jsonRegex);
-        if (!match || !match[1]) {
-          throw new Error("AI response did not contain a recognizable JSON array structure.");
-        }
-        parsedIngredients = JSON.parse(match[1]);
+        parsedIngredients = JSON.parse(responseText);
       } catch (parseError) {
-        console.error("Failed to parse extracted JSON:", parseError, "\nOriginal Response Text:", responseText);
-        throw new Error("AI response contained JSON, but it was invalid or couldn't be extracted correctly.");
+        console.error("Failed to parse Gemini JSON response:", parseError, "\nResponse:", responseText);
+        throw new Error("AI returned invalid JSON for ingredient list.");
       }
 
       // 5. Map LLM response to internal structure (using allFoodItems for lookup)
