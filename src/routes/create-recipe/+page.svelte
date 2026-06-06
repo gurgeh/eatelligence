@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { supabase } from '$lib/supabaseClient';
   import type { FoodItem } from '$lib/types';
-  import { calculateKcal } from '$lib/utils';
+  import { calculateKcal, ratio } from '$lib/utils';
   import NutrientBadges from '$lib/components/NutrientBadges.svelte';
 
   // Define a local type for the data structure used in this component
@@ -134,29 +134,8 @@
       }
     }
     newTotals.count = calculatedCount;
-
-
-    // Round the calculated totals for defined keys in newTotals
-    for (const key of nutrientKeys) {
-        // newTotals[key] is guaranteed to be a number due to initialization and add function
-        // Round nutrient totals for display (except count)
-        newTotals[key] = Math.round(newTotals[key]!); // Round to nearest integer for display consistency
-    }
-
-    // Calculate ratio AFTER summing and before final assignment
-    const totalOmega3 = newTotals.omega3 ?? 0;
-    const totalOmega6 = newTotals.omega6 ?? 0;
-    let calculatedRatio = '-'; // Default ratio
-    if (totalOmega3 > 0) {
-        const omega6Part = (totalOmega6 / totalOmega3).toFixed(1);
-        calculatedRatio = `${omega6Part}:1`;
-    } else if (totalOmega6 > 0) {
-        calculatedRatio = `∞:1`;
-    }
-    // Add ratio to the newTotals object before assigning to totals
-    (newTotals as any).ratio = calculatedRatio; // Cast to any to add the ratio property dynamically
-
-    totals = newTotals; // Assign the fully calculated, rounded, and ratio-included totals
+    (newTotals as any).ratio = ratio(newTotals.omega6, newTotals.omega3) ?? (newTotals.omega6 ? '∞:1' : '-');
+    totals = newTotals;
   }
 
 

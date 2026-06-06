@@ -3,7 +3,7 @@
 	import { supabase } from '$lib/supabaseClient'; // Use $lib alias
 	import Fuse from 'fuse.js';
 	import { debounce } from 'lodash-es'; // Using lodash for debouncing search input
-	import { calculateKcal } from '$lib/utils';
+	import { calculateKcal, ratio } from '$lib/utils';
 	import TargetDetailsModal from '$lib/components/TargetDetailsModal.svelte';
 	import NutrientBadges from '$lib/components/NutrientBadges.svelte';
 	import type { NutritionTarget, FoodLog } from '$lib/types';
@@ -537,20 +537,11 @@
 			}
 		}
 
-		// Calculate ratio for each day AFTER summing all nutrients
 		for (const dateStr in groupedLogs) {
 			const dailyTotals = groupedLogs[dateStr].totals;
-			const totalOmega3 = dailyTotals.omega3 ?? 0;
-			const totalOmega6 = dailyTotals.omega6 ?? 0;
-
-			if (totalOmega3 > 0) {
-				const omega6Part = (totalOmega6 / totalOmega3).toFixed(1); // Round to 1 decimal
-				dailyTotals.ratio = `${omega6Part}:1`;
-			} else if (totalOmega6 > 0) { // O3 is 0, O6 is > 0
-				dailyTotals.ratio = `∞:1`; // Or 'N/A' or similar
-			} else { // Both are 0
-				dailyTotals.ratio = `-`; // Or '0:0'
-			}
+			const o3 = dailyTotals.omega3 ?? 0;
+			const o6 = dailyTotals.omega6 ?? 0;
+			dailyTotals.ratio = ratio(o6, o3) ?? (o6 > 0 ? '∞:1' : '-');
 		}
 
 
@@ -683,17 +674,10 @@
 				nutrientKeys.map(key => [key, (summedTotals[key] ?? 0) / daysWithLogs])
 			) as NutrientTotals;
 
-			// Calculate average ratio
-			let avgRatio = '-';
-			const avgOmega3 = averages.omega3 ?? 0;
-			const avgOmega6 = averages.omega6 ?? 0;
-			if (avgOmega3 > 0) {
-				avgRatio = `${(avgOmega6 / avgOmega3).toFixed(1)}:1`;
-			} else if (avgOmega6 > 0) {
-				avgRatio = `∞:1`;
-			}
-
-			sevenDayAverages = { ...averages, ratio: avgRatio, daysWithLogs: daysWithLogs };
+			const avgO6 = averages.omega6 ?? 0;
+			const avgO3 = averages.omega3 ?? 0;
+			const avgRatio = ratio(avgO6, avgO3) ?? (avgO6 > 0 ? '∞:1' : '-');
+			sevenDayAverages = { ...averages, ratio: avgRatio, daysWithLogs };
 
 		} else {
 			// No logs in the last 7 days
