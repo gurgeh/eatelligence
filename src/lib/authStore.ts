@@ -18,21 +18,6 @@ const initialState: AuthState = {
 
 const authStore = writable<AuthState>(initialState);
 
-// Set initial auth state
-supabase.auth.getSession().then(({ data, error }) => {
-  if (error) {
-    authStore.set({ user: null, session: null, loading: false, error });
-  } else {
-    authStore.set({
-      user: data.session?.user ?? null,
-      session: data.session,
-      loading: false,
-      error: null,
-    });
-  }
-});
-
-// Listen for auth changes
 supabase.auth.onAuthStateChange(
   (event: AuthChangeEvent, session: Session | null) => {
     authStore.set({

@@ -12,12 +12,7 @@
     loading = true;
     errorMsg = null;
     try {
-      // Define your redirect URLs
-      const developmentRedirectUrl = 'http://localhost:5173';
-      const productionRedirectUrl = 'https://eatelligence.fendrich.se';
-
-      // Determine the correct redirect URL based on the environment
-      const redirectTo = dev ? developmentRedirectUrl : productionRedirectUrl;
+      const redirectTo = dev ? window.location.origin : 'https://eatelligence.fendrich.se';
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

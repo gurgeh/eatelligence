@@ -19,7 +19,8 @@
 	});
 
 	$effect(() => {
-		if (!currentAuth.loading && !currentAuth.user && $page.url.pathname !== '/login') {
+		const isOAuthCallback = $page.url.searchParams.has('code') || $page.url.hash.includes('access_token');
+		if (!currentAuth.loading && !currentAuth.user && $page.url.pathname !== '/login' && !isOAuthCallback) {
 			goto('/login');
 		}
 	});
