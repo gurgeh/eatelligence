@@ -3,9 +3,9 @@
 	import { supabase } from '$lib/supabaseClient'; // Use $lib alias
 	import Fuse from 'fuse.js';
 	import { debounce } from 'lodash-es'; // Using lodash for debouncing search input
-	import { calculateKcal } from '$lib/utils'; // Import the calculation helper
-	import TargetDetailsModal from '$lib/components/TargetDetailsModal.svelte'; // Import the modal
-	import type { NutritionTarget } from '$lib/types'; // Import target type
+	import { calculateKcal } from '$lib/utils';
+	import TargetDetailsModal from '$lib/components/TargetDetailsModal.svelte';
+	import type { NutritionTarget, FoodLog } from '$lib/types';
 
 	// Define types for better clarity
 	type FoodItem = {
@@ -44,14 +44,6 @@
 		// Note: calories are calculated dynamically
 	};
 
-
-	type FoodLog = {
-		id: number;
-		logged_at: string;
-		multiplier: number;
-		food_item_id: number;
-		food_items: FoodItem | null; // For joined data
-	};
 
 	let searchTerm = '';
 	let searchResults: FoodItem[] = [];

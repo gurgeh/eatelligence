@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '../app.css';
 	import authStore from '$lib/authStore';
-	import { supabase } from '$lib/supabaseClient';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
@@ -10,50 +9,20 @@
 
 	let { children } = $props();
 
-	// Use $authStore for direct reactivity in template if possible,
-	// or manage local state derived from the store.
-	// For script logic, especially in onMount or $effect, ensure correct access.
-
-	let currentAuth = $state(get(authStore)); // Initialize with current store value
+	let currentAuth = $state(get(authStore));
 
 	onMount(() => {
 		const unsubscribeStore = authStore.subscribe(value => {
-			currentAuth = value; // Update local reactive state when store changes
+			currentAuth = value;
 		});
-
-		// Initial check, currentAuth is already initialized from store via get(authStore)
-		// The $effect below will handle ongoing reactive redirection.
-		// This onMount check can be an immediate one if $effect doesn't run fast enough initially.
-		if (!currentAuth.loading && !currentAuth.user && $page.url.pathname !== '/login') {
-			   goto('/login');
-		}
-
-		return () => {
-			unsubscribeStore();
-		};
+		return () => unsubscribeStore();
 	});
 
-	// Reactive effect for navigation based on auth state
 	$effect(() => {
-		// currentAuth is reactively updated from the authStore subscription in onMount
 		if (!currentAuth.loading && !currentAuth.user && $page.url.pathname !== '/login') {
 			goto('/login');
 		}
 	});
-
-	async function handleLogout() {
-		try {
-			const { error } = await supabase.auth.signOut();
-			if (error) {
-				console.error('Error signing out:', error);
-				// Optionally show an error message to the user
-			} else {
-				// authStore will update, and the $effect above should redirect to /login
-			}
-		} catch (err) {
-			console.error('Unexpected error signing out:', err);
-		}
-	}
 </script>
 
 {#if currentAuth.loading}
@@ -62,8 +31,6 @@
 		<!-- Or a more sophisticated loading spinner -->
 	</div>
 {:else if !currentAuth.user && $page.url.pathname !== '/login'}
-	<!-- This block might not be strictly necessary if the $effect handles redirection promptly -->
-	<!-- It can serve as a fallback or for pages that might render briefly before redirect -->
 	<div class="flex items-center justify-center min-h-screen">
 		<p class="text-xl">Redirecting to login...</p>
 	</div>

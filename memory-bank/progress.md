@@ -80,4 +80,4 @@ Ideas:
 - [ ] For performance reasons, a local Svelte store may be used to store food_items.
 - [ ] Add optional photo input with name for recipes
 - [ ] Read through code, including TODOs
-- [ ] Maybe ask LLM for cleanup
+- [X] ~~Maybe ask LLM for cleanup~~

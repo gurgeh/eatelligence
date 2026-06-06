@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import type { NutritionTarget } from '$lib/types';
 	import TargetProgressBar from './TargetProgressBar.svelte';
-    import { calculateKcal } from '$lib/utils'; // Assuming calculateKcal exists
+	import { calculateKcal, relativeTargetMappings, generateTargetLabel } from '$lib/utils';
 
 	export let isOpen: boolean = false;
 	export let dailyTotals: { [key: string]: number } = {}; // e.g., { protein: 150, fat: 80, ... }
@@ -220,33 +220,6 @@
                 displayMax: displayMax
 			};
 		});
-	}
-
-	// --- Helper to Generate Labels (copied from settings page for consistency) ---
-	// TODO: Move this to utils.ts to avoid duplication
-    const relativeTargetMappings: { [key: string]: { label: string; n1: string; n2: string } } = {
-		protein_percent_calories: { label: 'Protein (% of Calories)', n1: 'protein', n2: 'calories' },
-		fat_percent_calories: { label: 'Fat (% of Calories)', n1: 'fat', n2: 'calories' },
-		carbs_percent_calories: { label: 'Carbs (% of Calories)', n1: 'carbs', n2: 'calories' },
-		omega6_omega3_ratio: { label: 'Omega-6 / Omega-3 Ratio (%)', n1: 'omega6', n2: 'omega3' },
-		pufa_sfa_ratio: { label: 'PUFA / SFA Ratio (%)', n1: 'pufa', n2: 'sfa' },
-		mufa_percent_fat: { label: 'MUFA (% of Total Fat)', n1: 'mufa', n2: 'fat' },
-		pufa_percent_fat: { label: 'PUFA (% of Total Fat)', n1: 'pufa', n2: 'fat' },
-		sfa_percent_fat: { label: 'SFA (% of Total Fat)', n1: 'sfa', n2: 'fat' }
-	};
-	function generateTargetLabel(n1: string, n2: string | null): string {
-		if (n2 === null) {
-			// Absolute
-			const unit = n1 === 'calories' ? 'kcal' : 'g';
-			return `${n1.charAt(0).toUpperCase() + n1.slice(1)} (${unit})`;
-		} else {
-			// Relative - find the matching label from mappings
-			const mappingKey = Object.keys(relativeTargetMappings).find(
-				key => relativeTargetMappings[key].n1 === n1 && relativeTargetMappings[key].n2 === n2
-			);
-			// Fallback label includes unit (%)
-			return mappingKey ? relativeTargetMappings[mappingKey].label : `${n1} / ${n2} (%)`;
-		}
 	}
 
 	function closeModal() {

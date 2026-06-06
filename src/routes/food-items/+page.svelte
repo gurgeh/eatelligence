@@ -33,15 +33,8 @@
       if (dbError) throw dbError;
       if (data) {
         foodItems = data;
-        // Initialize Fuse.js for searching
-        fuse = new Fuse(foodItems, {
-          keys: ['name', 'comment'],
-          threshold: 0.3, // Adjust threshold for fuzziness
-           includeScore: false,
-         });
-         // Initial filter is handled by the reactive statement now
-       }
-     } catch (err: any) {
+      }
+    } catch (err: any) {
       console.error('Error fetching food items:', err);
       error = `Failed to load food items: ${err.message}`;
       foodItems = [];
