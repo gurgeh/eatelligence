@@ -8,11 +8,86 @@
   import NutrientBadges from '$lib/components/NutrientBadges.svelte';
   import { loadGeminiKey, saveGeminiKey } from '$lib/geminiKey';
 
-  // Simple assertion function
   function assert(condition: any, message: string): asserts condition {
-    if (!condition) {
-      throw new Error(message);
+    if (!condition) throw new Error(message);
+  }
+
+  type IngredientResult = {
+    id: number;
+    multiplier: number;
+    serving_qty: number;
+    serving_unit: string;
+    nutrition: {
+      protein: number | null; fat: number | null; carbs: number | null;
+      fibers: number | null; sugar: number | null; mufa: number | null;
+      pufa: number | null; sfa: number | null; gl: number | null;
+      omega3: number | null; omega6: number | null;
+    };
+  };
+
+  async function processSingleIngredient(
+    genAI: GoogleGenAI,
+    name: string,
+    quantity: number,
+    unit: string
+  ): Promise<IngredientResult> {
+    const standardUnit = unit === 'dl' ? 'dl' : unit === 'pcs' ? 'pcs' : unit === 'portion' ? 'portion' : 'g';
+    const standardQty = standardUnit === 'g' ? 100 : 1;
+    const multiplier = quantity / standardQty;
+
+    const jsonSchema = `{
+      "protein": number | null, "fat": number | null, "carbs": number | null,
+      "fibers": number | null, "sugar": number | null, "mufa": number | null,
+      "pufa": number | null, "sfa": number | null, "gl": number | null,
+      "omega3": number | null, "omega6": number | null, "comment"?: string | null
+    }`;
+    const prompt = `Provide nutritional information per ${standardQty} ${standardUnit} for the food item "${name}". For 'carbs', report carbohydrates excluding fiber. If sources do not provide a value, you MUST estimate it from best guess. If assumptions are needed, include only the most important ones in the 'comment' field prefixed with "Assumptions: ". Be brief. Do not include source references or citations. Return only a valid JSON object matching this structure:\n${jsonSchema}`;
+
+    const result = await genAI.models.generateContent({
+      model: "gemini-2.5-pro-preview-03-25",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { tools: [{ googleSearch: {} }], thinkingConfig: { includeThoughts: false } },
+    });
+
+    const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!responseText) throw new Error("AI response for nutrition did not contain text.");
+
+    const match = responseText.match(/.*(\{[\s\S]*\})/s);
+    if (!match?.[1]) throw new Error("AI nutrition response JSON structure not found.");
+
+    let nutritionData: Partial<FoodItem>;
+    try {
+      nutritionData = JSON.parse(match[1]);
+    } catch {
+      throw new Error("AI nutrition response JSON invalid.");
     }
+
+    assert(typeof nutritionData.omega6 === 'number' || nutritionData.omega6 === null,
+      `Omega 6 from AI must be number or null, got: ${typeof nutritionData.omega6}`);
+    assert(typeof nutritionData.omega3 === 'number' || nutritionData.omega3 === null,
+      `Omega 3 from AI must be number or null, got: ${typeof nutritionData.omega3}`);
+
+    const itemToInsert = {
+      name, serving_qty: standardQty, serving_unit: standardUnit,
+      protein: nutritionData.protein ?? null, fat: nutritionData.fat ?? null,
+      carbs: nutritionData.carbs ?? null, fibers: nutritionData.fibers ?? null,
+      sugar: nutritionData.sugar ?? null, mufa: nutritionData.mufa ?? null,
+      pufa: nutritionData.pufa ?? null, sfa: nutritionData.sfa ?? null,
+      gl: nutritionData.gl ?? null, omega3: nutritionData.omega3 ?? null,
+      omega6: nutritionData.omega6 ?? null, comment: nutritionData.comment?.trim() || null,
+    };
+
+    const { data: insertedData, error: insertError } = await supabase
+      .from('food_items').insert([itemToInsert]).select('id').single();
+
+    if (insertError) throw insertError;
+    if (!insertedData) throw new Error('Failed to insert new food item, no ID returned.');
+
+    const { protein, fat, carbs, fibers, sugar, mufa, pufa, sfa, gl, omega3, omega6 } = itemToInsert;
+    return {
+      id: insertedData.id, multiplier, serving_qty: standardQty, serving_unit: standardUnit,
+      nutrition: { protein, fat, carbs, fibers, sugar, mufa, pufa, sfa, gl, omega3, omega6 },
+    };
   }
 
   type ExistingItemInfo = {
@@ -447,94 +522,11 @@ ${jsonSchema}`;
           }
 
           try {
-            // Determine standard size and calculate multiplier based on potentially edited values
-            const standardUnit = unit === 'dl' ? 'dl' : (unit === 'pcs' ? 'pcs' : (unit === 'portion' ? 'portion' : 'g')); // Handle pcs/portion too, default g
-            const standardQty = standardUnit === 'dl' ? 1 : (standardUnit === 'pcs' ? 1 : (standardUnit === 'portion' ? 1 : 100)); // 1 for dl/pcs/portion, 100 for g
-            const multiplier = quantity / standardQty;
-
-            const jsonSchema = `{
-              "protein": number | null, "fat": number | null, "carbs": number | null,
-              "fibers": number | null, "sugar": number | null, "mufa": number | null,
-              "pufa": number | null, "sfa": number | null, "gl": number | null,
-              "omega3": number | null, "omega6": number | null, "comment"?: string | null
-            }`;
-            const prompt = `Provide nutritional information per ${standardQty} ${standardUnit} for the food item "${name}". For 'carbs', report carbohydrates excluding fiber. If sources do not provide a value, you MUST estimate it from best guess. If assumptions are needed, include only the most important ones in the 'comment' field prefixed with "Assumptions: ". Be brief. Do not include source references or citations. Return only a valid JSON object matching this structure:\n${jsonSchema}`;
-
-            // Call Gemini for nutrition
-            const result = await genAI.models.generateContent({
-              model: "gemini-2.5-pro-preview-03-25",
-              contents: [{ role: "user", parts: [{ text: prompt }] }],
-              config: { tools: [{ googleSearch: {} }], thinkingConfig: { includeThoughts: false } },
-            });
-            const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            if (!responseText) throw new Error("AI response for nutrition did not contain text.");
-
-            // Parse nutrition JSON
-            let nutritionData: Partial<FoodItem>;
-            const jsonRegex = /.*(\{[\s\S]*\})/s;
-            const match = responseText.match(jsonRegex);
-            if (!match || !match[1]) throw new Error("AI nutrition response JSON structure not found.");
-            try {
-               nutritionData = JSON.parse(match[1]);
-            } catch (parseError) {
-             console.error("Failed to parse nutrition JSON:", parseError, "\nOriginal Response:", responseText);
-             throw new Error("AI nutrition response JSON invalid.");
-           }
-
-           // --- VALIDATION ---
-           // Ensure omega values are numbers as expected from the prompt/schema
-           assert(
-             typeof nutritionData.omega6 === 'number' || nutritionData.omega6 === null,
-             `Omega 6 from AI must be a number or null, got type: ${typeof nutritionData.omega6}, value: ${nutritionData.omega6}`
-           );
-            assert(
-             typeof nutritionData.omega3 === 'number' || nutritionData.omega3 === null,
-             `Omega 3 from AI must be a number or null, got type: ${typeof nutritionData.omega3}, value: ${nutritionData.omega3}`
-           );
-           // --- END VALIDATION ---
-
-
-           // Prepare item for DB insert
-           const itemToInsert = {
-             name: name,
-              serving_qty: standardQty,
-              serving_unit: standardUnit,
-              protein: nutritionData.protein ?? null, fat: nutritionData.fat ?? null, carbs: nutritionData.carbs ?? null,
-              fibers: nutritionData.fibers ?? null, sugar: nutritionData.sugar ?? null, mufa: nutritionData.mufa ?? null,
-              pufa: nutritionData.pufa ?? null, sfa: nutritionData.sfa ?? null, gl: nutritionData.gl ?? null,
-              omega3: nutritionData.omega3 ?? null, omega6: nutritionData.omega6 ?? null,
-              comment: nutritionData.comment?.trim() || null
-            };
-
-            // Insert into DB
-            const { data: insertedData, error: insertError } = await supabase
-              .from('food_items')
-              .insert([itemToInsert])
-              .select('id')
-              .single();
-
-            if (insertError) throw insertError;
-            if (!insertedData) throw new Error('Failed to insert new food item on retry, no ID returned.');
-
-            // Return success data, including the originalIndex
-            return {
-              status: 'fulfilled',
-              originalIndex, // Include originalIndex here
-              id: insertedData.id,
-              multiplier,
-              serving_qty: standardQty,
-              serving_unit: standardUnit,
-              nutrition: {
-                 protein: itemToInsert.protein, fat: itemToInsert.fat, carbs: itemToInsert.carbs,
-                 fibers: itemToInsert.fibers, sugar: itemToInsert.sugar, mufa: itemToInsert.mufa,
-                 pufa: itemToInsert.pufa, sfa: itemToInsert.sfa, gl: itemToInsert.gl,
-                 omega3: itemToInsert.omega3, omega6: itemToInsert.omega6
-              }
-            };
+            const processed = await processSingleIngredient(genAI, name, quantity, unit);
+            return { status: 'fulfilled', originalIndex, ...processed };
           } catch (itemError: any) {
-             console.error(`Error processing new ingredient "${name}" (original index ${originalIndex}):`, itemError); // Use originalIndex
-             // Throw rejection data, including the originalIndex, so Promise.allSettled catches it as rejected
-             throw { originalIndex, reason: itemError instanceof Error ? itemError.message : String(itemError) };
+            console.error(`Error processing "${name}" (index ${originalIndex}):`, itemError);
+            throw { originalIndex, reason: itemError instanceof Error ? itemError.message : String(itemError) };
           }
         });
 
@@ -784,119 +776,50 @@ ${jsonSchema}`;
   }
 
 
-  // --- Retry Function ---
   async function retryProcessIngredient(index: number) {
     const ingredient = generatedIngredients[index];
-    if (!ingredient || ingredient.status !== 'error') return; // Only retry errors
+    if (!ingredient || ingredient.status !== 'error') return;
 
-    console.log(`Retrying ingredient at index ${index}:`, ingredient.name || ingredient.matchedName);
-    // Reset status for retry attempt
     ingredient.status = 'processing';
     ingredient.errorMsg = undefined;
-    generatedIngredients = [...generatedIngredients]; // Update UI to show 'processing'
+    generatedIngredients = [...generatedIngredients];
 
-    // Ensure API key exists
-     if (!geminiApiKey) {
-       ingredient.status = 'error';
-       ingredient.errorMsg = 'API Key missing for retry.';
-       generatedIngredients = [...generatedIngredients];
-       showApiKeyInput = true;
-       return;
-     }
+    if (!geminiApiKey) {
+      ingredient.status = 'error';
+      ingredient.errorMsg = 'API Key missing for retry.';
+      generatedIngredients = [...generatedIngredients];
+      showApiKeyInput = true;
+      return;
+    }
 
-     // Ensure needed data exists (should exist if it failed before, but check again)
-     // For retry, we need the original name, quantity, and unit stored before processing started
-     const { name, quantity, unit } = ingredient; // These might be undefined if the initial object structure was different
-     if (!name || !quantity || !unit) { // Check if original data is available
-        ingredient.status = 'error';
-        // Attempt to get name for error message if possible
-        const errorName = ingredient.name || ingredient.matchedName || `Item at index ${index}`;
-        ingredient.errorMsg = `Cannot retry ${errorName}: Missing original name, quantity, or unit.`;
-        generatedIngredients = [...generatedIngredients];
-        return;
-     }
+    const { name, quantity, unit } = ingredient;
+    if (!name || !quantity || !unit) {
+      const errorName = ingredient.name || ingredient.matchedName || `Item at index ${index}`;
+      ingredient.status = 'error';
+      ingredient.errorMsg = `Cannot retry ${errorName}: Missing original name, quantity, or unit.`;
+      generatedIngredients = [...generatedIngredients];
+      return;
+    }
 
-     const genAI = new GoogleGenAI({ apiKey: geminiApiKey });
+    const genAI = new GoogleGenAI({ apiKey: geminiApiKey });
 
-     try {
-        // Re-run the processing logic for this specific ingredient
-        const standardUnit = unit === 'dl' ? 'dl' : 'g';
-        const standardQty = standardUnit === 'dl' ? 1 : 100;
-        const multiplier = quantity / standardQty;
-
-        const jsonSchema = `{ "protein": number | null, "fat": number | null, "carbs": number | null, "fibers": number | null, "sugar": number | null, "mufa": number | null, "pufa": number | null, "sfa": number | null, "gl": number | null, "omega3": number | null, "omega6": number | null, "comment"?: string | null }`;
-        const prompt = `Provide nutritional information per ${standardQty} ${standardUnit} for the food item "${name}". For 'carbs', report total carbohydrates (including fiber). If assumptions are needed, include only the most important ones in the 'comment' field prefixed with "Assumptions: ". Be brief. Do not include source references or citations. Return only a valid JSON object matching this structure:\n${jsonSchema}`;
-
-        const result = await genAI.models.generateContent({
-          model: "gemini-2.5-pro-preview-03-25",
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          config: { tools: [{ googleSearch: {} }], thinkingConfig: { includeThoughts: false } },
-        });
-        const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        if (!responseText) throw new Error("AI response for nutrition did not contain text.");
-
-        let nutritionData: Partial<FoodItem>;
-        const jsonRegex = /.*(\{[\s\S]*\})/s;
-        const match = responseText.match(jsonRegex);
-        if (!match || !match[1]) throw new Error("AI nutrition response JSON structure not found.");
-         try {
-            nutritionData = JSON.parse(match[1]);
-         } catch (parseError) {
-            console.error("Failed to parse nutrition JSON on retry:", parseError, "\nOriginal Response:", responseText);
-            throw new Error("AI nutrition response JSON invalid on retry.");
-         }
-
-         // --- VALIDATION (Retry) ---
-         assert(
-           typeof nutritionData.omega6 === 'number' || nutritionData.omega6 === null,
-           `Omega 6 from AI (retry) must be a number or null, got type: ${typeof nutritionData.omega6}, value: ${nutritionData.omega6}`
-         );
-          assert(
-           typeof nutritionData.omega3 === 'number' || nutritionData.omega3 === null,
-           `Omega 3 from AI (retry) must be a number or null, got type: ${typeof nutritionData.omega3}, value: ${nutritionData.omega3}`
-         );
-         // --- END VALIDATION (Retry) ---
-
-         const itemToInsert = {
-           name: name, serving_qty: standardQty, serving_unit: standardUnit,
-           protein: nutritionData.protein ?? null, fat: nutritionData.fat ?? null, carbs: nutritionData.carbs ?? null,
-          fibers: nutritionData.fibers ?? null, sugar: nutritionData.sugar ?? null, mufa: nutritionData.mufa ?? null,
-          pufa: nutritionData.pufa ?? null, sfa: nutritionData.sfa ?? null, gl: nutritionData.gl ?? null,
-          omega3: nutritionData.omega3 ?? null, omega6: nutritionData.omega6 ?? null,
-          comment: nutritionData.comment?.trim() || null
-        };
-
-        const { data: insertedData, error: insertError } = await supabase
-          .from('food_items')
-          .insert([itemToInsert])
-          .select('id')
-          .single();
-
-        if (insertError) throw insertError;
-        if (!insertedData) throw new Error('Failed to insert new food item on retry, no ID returned.');
-
-        // Update ingredient on successful retry
-        ingredient.status = 'done';
-        ingredient.id = insertedData.id;
-        ingredient.multiplier = multiplier;
-        ingredient.serving_qty = standardQty;
-        ingredient.serving_unit = standardUnit;
-        ingredient.nutrition = {
-           protein: itemToInsert.protein, fat: itemToInsert.fat, carbs: itemToInsert.carbs,
-           fibers: itemToInsert.fibers, sugar: itemToInsert.sugar, mufa: itemToInsert.mufa,
-           pufa: itemToInsert.pufa, sfa: itemToInsert.sfa, gl: itemToInsert.gl,
-           omega3: itemToInsert.omega3, omega6: itemToInsert.omega6
-        };
-        ingredient.errorMsg = undefined; // Clear previous error
-
-     } catch (retryError: any) {
-        console.error(`Retry failed for ingredient "${name}" (index ${index}):`, retryError);
-        ingredient.status = 'error';
-        ingredient.errorMsg = `Retry failed: ${retryError.message}`;
-     } finally {
-        generatedIngredients = [...generatedIngredients]; // Update UI with final status (done or error)
-        calculateRecipeTotals(); // Recalculate totals after retry attempt
-     }
+    try {
+      const processed = await processSingleIngredient(genAI, name, quantity, unit);
+      ingredient.status = 'done';
+      ingredient.id = processed.id;
+      ingredient.multiplier = processed.multiplier;
+      ingredient.serving_qty = processed.serving_qty;
+      ingredient.serving_unit = processed.serving_unit;
+      ingredient.nutrition = processed.nutrition;
+      ingredient.errorMsg = undefined;
+    } catch (retryError: any) {
+      console.error(`Retry failed for "${name}" (index ${index}):`, retryError);
+      ingredient.status = 'error';
+      ingredient.errorMsg = `Retry failed: ${retryError.message}`;
+    } finally {
+      generatedIngredients = [...generatedIngredients];
+      calculateRecipeTotals();
+    }
   }
 
 </script>
