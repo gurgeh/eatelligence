@@ -3,9 +3,10 @@
   import { supabase } from '$lib/supabaseClient';
   import Fuse from 'fuse.js';
   import { tick } from 'svelte';
-  import type { FoodItem } from '$lib/types'; // Import the type
-  import { GoogleGenAI } from '@google/genai'; // <-- Correct Gemini import name
-  import { calculateKcal } from '$lib/utils'; // Import the calculation helper
+  import type { FoodItem } from '$lib/types';
+  import { GoogleGenAI } from '@google/genai';
+  import { calculateKcal } from '$lib/utils';
+  import { loadGeminiKey, saveGeminiKey } from '$lib/geminiKey';
 
   let foodItems: FoodItem[] = [];
   let filteredItems: FoodItem[] = [];
@@ -275,23 +276,18 @@
    }
 
 
-   // --- API Key Handling ---
-   function loadApiKey() {
-     if (typeof window !== 'undefined') {
-       geminiApiKey = localStorage.getItem('geminiApiKey') || '';
-       apiKeyInput = geminiApiKey; // Sync input field if needed
-     }
-   }
+  function loadApiKey() {
+    geminiApiKey = loadGeminiKey();
+    apiKeyInput = geminiApiKey;
+  }
 
-   function saveApiKey() {
-     if (typeof window !== 'undefined') {
-       localStorage.setItem('geminiApiKey', apiKeyInput);
-       geminiApiKey = apiKeyInput;
-       showApiKeyInput = false; // Hide input after saving
-       autoFillError = null; // Clear any previous key errors
-       alert('API Key saved successfully!');
-     }
-   }
+  function saveApiKey() {
+    saveGeminiKey(apiKeyInput);
+    geminiApiKey = apiKeyInput;
+    showApiKeyInput = false;
+    autoFillError = null;
+    alert('API Key saved successfully!');
+  }
 
    // --- Gemini Auto-fill Function ---
    async function autoFillNutrition() {

@@ -30,6 +30,13 @@ export function ratio(n6: number | null | undefined, n3: number | null | undefin
   return `${round(n6 / n3, 1)} : 1`;
 }
 
+export const NUTRIENT_KEYS = [
+  'protein', 'fat', 'carbs', 'fibers', 'sugar',
+  'mufa', 'pufa', 'sfa', 'gl', 'omega3', 'omega6',
+] as const;
+
+export type NutrientKey = typeof NUTRIENT_KEYS[number];
+
 export const relativeTargetMappings: { [key: string]: { label: string; n1: string; n2: string } } = {
   protein_percent_calories: { label: 'Protein (% of Calories)', n1: 'protein', n2: 'calories' },
   fat_percent_calories: { label: 'Fat (% of Calories)', n1: 'fat', n2: 'calories' },

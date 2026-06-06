@@ -5,6 +5,7 @@
 	import { debounce } from 'lodash-es'; // Using lodash for debouncing search input
 	import { calculateKcal } from '$lib/utils';
 	import TargetDetailsModal from '$lib/components/TargetDetailsModal.svelte';
+	import NutrientBadges from '$lib/components/NutrientBadges.svelte';
 	import type { NutritionTarget, FoodLog } from '$lib/types';
 
 	// Define types for better clarity
@@ -857,32 +858,7 @@
 			<p class="text-sm text-red-600">Error calculating averages: {error7DayLogs}</p>
 		{:else if sevenDayAverages}
 			<p class="text-xs text-gray-500 mb-2">Based on {sevenDayAverages.daysWithLogs} day(s) with logs in the last 7 days.</p>
-			<div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs">
-				<!-- Calculated Kcal -->
-				<span class="bg-blue-200 text-blue-900 px-1 py-0.5 rounded-md font-medium">
-					{Math.round(calculateKcal(sevenDayAverages))} C
-				</span>
-				<!-- Protein, Fat, Carbs -->
-				<span class="bg-green-200 text-green-900 px-1 py-0.5 rounded-md font-medium">
-					{Math.round(sevenDayAverages.protein ?? 0)}, {Math.round(sevenDayAverages.fat ?? 0)}, {Math.round(sevenDayAverages.carbs ?? 0)} <span class="text-green-700 text-[0.65rem]">PFC</span>
-				</span>
-				<!-- Fibers, Sugar -->
-				<span class="bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded-md font-medium">
-					{Math.round(sevenDayAverages.fibers ?? 0)}, {Math.round(sevenDayAverages.sugar ?? 0)} <span class="text-yellow-700 text-[0.65rem]">FiS</span>
-				</span>
-				<!-- MUFA, PUFA, SFA -->
-				<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium">
-					{Math.round(sevenDayAverages.mufa ?? 0)}, {Math.round(sevenDayAverages.pufa ?? 0)}, {Math.round(sevenDayAverages.sfa ?? 0)} <span class="text-orange-700 text-[0.65rem]">MPS</span>
-				</span>
-				<!-- Omega Ratio -->
-				<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium" title="Average Omega-6:Omega-3 Ratio">
-					{sevenDayAverages.ratio ?? '-'} <span class="text-orange-700 text-[0.65rem]">6:3</span>
-				</span>
-				<!-- GL -->
-				<span class="bg-purple-200 text-purple-900 px-1 py-0.5 rounded-md font-medium">
-					{Math.round(sevenDayAverages.gl ?? 0)} GL
-				</span>
-			</div>
+			<NutrientBadges totals={sevenDayAverages} ratio={sevenDayAverages.ratio} />
 		{:else}
 			<p class="text-sm text-gray-600">No log data found for the last 7 days.</p>
 		{/if}
@@ -917,32 +893,7 @@
 									<h3 class="text-base font-semibold text-gray-700">{item.date}</h3> <!-- Reduced size from text-lg -->
 									<!-- Removed "Daily Totals" span -->
 							</div>
-							<div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs"> <!-- Reduced gap-x -->
-								<!-- Calculated Kcal -->
-								<span class="bg-blue-200 text-blue-900 px-1 py-0.5 rounded-md font-medium pointer-events-none"> <!-- Reduced px, changed Cal to C -->
-									{calculateKcal(item.totals)} C
-								</span>
-								<!-- Protein, Fat, Carbs -->
-								<span class="bg-green-200 text-green-900 px-1 py-0.5 rounded-md font-medium pointer-events-none"> <!-- Reduced px -->
-									{Math.round(item.totals.protein ?? 0)}, {Math.round(item.totals.fat ?? 0)}, {Math.round(item.totals.carbs ?? 0)} <span class="text-green-700 text-[0.65rem]">PFC</span>
-								</span>
-								<!-- Fibers, Sugar -->
-								<span class="bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded-md font-medium pointer-events-none"> <!-- Reduced px -->
-									{Math.round(item.totals.fibers ?? 0)}, {Math.round(item.totals.sugar ?? 0)} <span class="text-yellow-700 text-[0.65rem]">FiS</span>
-								</span>
-								<!-- MUFA, PUFA, SFA -->
-								<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium pointer-events-none"> <!-- Reduced px -->
-									{Math.round(item.totals.mufa ?? 0)}, {Math.round(item.totals.pufa ?? 0)}, {Math.round(item.totals.sfa ?? 0)} <span class="text-orange-700 text-[0.65rem]">MPS</span>
-								</span>
-								<!-- Omega Ratio -->
-								<span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium pointer-events-none" title="Omega-6:Omega-3 Ratio"> <!-- Reduced px -->
-									{item.ratio ?? '-'} <span class="text-orange-700 text-[0.65rem]">6:3</span>
-								</span>
-								<!-- GL -->
-								<span class="bg-purple-200 text-purple-900 px-1 py-0.5 rounded-md font-medium pointer-events-none"> <!-- Reduced px -->
-									{Math.round(item.totals.gl ?? 0)} GL
-								</span>
-							</div>
+							<NutrientBadges totals={item.totals} ratio={item.ratio} pointerEventsNone />
 						</button> <!-- Close button -->
 						</li>
 					{:else if item.type === 'log'}

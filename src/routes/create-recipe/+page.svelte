@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { supabase } from '$lib/supabaseClient';
-  import type { FoodItem } from '$lib/types'; // Only need FoodItem from shared types
-  import { calculateKcal } from '$lib/utils'; // Import the calculation helper
+  import type { FoodItem } from '$lib/types';
+  import { calculateKcal } from '$lib/utils';
+  import NutrientBadges from '$lib/components/NutrientBadges.svelte';
 
   // Define a local type for the data structure used in this component
   interface RecipeLogEntry {
@@ -249,33 +250,7 @@
     <div class="mb-4 p-3 border rounded bg-gray-100 sticky top-0 z-10"> <!-- Reduced padding -->
       <h2 class="text-lg font-semibold mb-2">Selected Items Summary ({totals.count} items)</h2>
       {#if totals.count > 0}
-        <!-- Use exact structure and classes from main log daily summary -->
-        <div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs"> <!-- Reduced gap-x -->
-            <!-- Calculated Kcal -->
-            <span class="bg-blue-200 text-blue-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px, changed Cal to C -->
-                {calculateKcal(totals)} C
-            </span>
-            <!-- Protein, Fat, Carbs -->
-            <span class="bg-green-200 text-green-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
-                {totals.protein ?? 0}, {totals.fat ?? 0}, {totals.carbs ?? 0} <span class="text-green-700 text-[0.65rem]">PFC</span>
-            </span>
-            <!-- Fibers, Sugar -->
-            <span class="bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
-                {totals.fibers ?? 0}, {totals.sugar ?? 0} <span class="text-yellow-700 text-[0.65rem]">FiS</span>
-            </span>
-            <!-- MUFA, PUFA, SFA -->
-            <span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
-                {totals.mufa ?? 0}, {totals.pufa ?? 0}, {totals.sfa ?? 0} <span class="text-orange-700 text-[0.65rem]">MPS</span>
-            </span>
-            <!-- Omega Ratio -->
-            <span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium" title="Omega-6:Omega-3 Ratio"> <!-- Reduced px -->
-                {totals.ratio ?? '-'} <span class="text-orange-700 text-[0.65rem]">6:3</span>
-            </span>
-            <!-- GL -->
-            <span class="bg-purple-200 text-purple-900 px-1 py-0.5 rounded-md font-medium"> <!-- Reduced px -->
-                {totals.gl ?? 0} GL
-            </span>
-        </div>
+        <NutrientBadges totals={totals} ratio={totals.ratio} />
       {:else}
         <p class="text-sm text-gray-500">Select log entries below to see totals.</p>
       {/if}

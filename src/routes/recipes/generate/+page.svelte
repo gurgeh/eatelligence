@@ -1,10 +1,12 @@
 <script lang="ts">
   import { supabase } from '$lib/supabaseClient';
   import type { FoodItem } from '$lib/types';
-  import { onMount, tick } from 'svelte'; // Import tick
-  import { GoogleGenAI } from '@google/genai'; // Import Gemini
-  import { calculateKcal, ratio } from '$lib/utils'; // Import calculation helper AND ratio
-  import Fuse, { type FuseResult } from 'fuse.js'; // Import FuseResult type
+  import { onMount, tick } from 'svelte';
+  import { GoogleGenAI } from '@google/genai';
+  import { calculateKcal, ratio } from '$lib/utils';
+  import Fuse, { type FuseResult } from 'fuse.js';
+  import NutrientBadges from '$lib/components/NutrientBadges.svelte';
+  import { loadGeminiKey, saveGeminiKey } from '$lib/geminiKey';
 
   // Simple assertion function
   function assert(condition: any, message: string): asserts condition {
@@ -157,22 +159,18 @@
   }
 
   // --- API Key Handling ---
-   function loadApiKey() {
-     if (typeof window !== 'undefined') {
-       geminiApiKey = localStorage.getItem('geminiApiKey') || '';
-       apiKeyInput = geminiApiKey; // Sync input field if needed
-     }
-   }
+  function loadApiKey() {
+    geminiApiKey = loadGeminiKey();
+    apiKeyInput = geminiApiKey;
+  }
 
-   function saveApiKey() {
-     if (typeof window !== 'undefined') {
-       localStorage.setItem('geminiApiKey', apiKeyInput);
-       geminiApiKey = apiKeyInput;
-       showApiKeyInput = false; // Hide input after saving
-       errorMessage = ''; // Clear any previous key errors
-       alert('API Key saved successfully!');
-     }
-   }
+  function saveApiKey() {
+    saveGeminiKey(apiKeyInput);
+    geminiApiKey = apiKeyInput;
+    showApiKeyInput = false;
+    errorMessage = '';
+    alert('API Key saved successfully!');
+  }
 
   async function generateIngredientList() {
     isLoadingList = true;
@@ -1176,32 +1174,7 @@ ${jsonSchema}`;
       {#if recipeTotals.count > 0}
         <div class="mt-6 p-3 border rounded bg-gray-100">
           <h2 class="text-lg font-semibold mb-2">Recipe Summary ({recipeTotals.count} ingredients)</h2>
-          <div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs">
-              <!-- Calculated Kcal -->
-              <span class="bg-blue-200 text-blue-900 px-1 py-0.5 rounded-md font-medium">
-                  {calculateKcal(recipeTotals)} C
-              </span>
-              <!-- Protein, Fat, Carbs -->
-              <span class="bg-green-200 text-green-900 px-1 py-0.5 rounded-md font-medium">
-                  {recipeTotals.protein ?? 0}, {recipeTotals.fat ?? 0}, {recipeTotals.carbs ?? 0} <span class="text-green-700 text-[0.65rem]">PFC</span>
-              </span>
-              <!-- Fibers, Sugar -->
-              <span class="bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded-md font-medium">
-                  {recipeTotals.fibers ?? 0}, {recipeTotals.sugar ?? 0} <span class="text-yellow-700 text-[0.65rem]">FiS</span>
-              </span>
-              <!-- MUFA, PUFA, SFA -->
-              <span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium">
-                  {recipeTotals.mufa ?? 0}, {recipeTotals.pufa ?? 0}, {recipeTotals.sfa ?? 0} <span class="text-orange-700 text-[0.65rem]">MPS</span>
-              </span>
-              <!-- Omega Ratio -->
-              <span class="bg-orange-200 text-orange-900 px-1 py-0.5 rounded-md font-medium" title="Omega-6:Omega-3 Ratio">
-                  {recipeTotals.ratio ?? '-'} <span class="text-orange-700 text-[0.65rem]">6:3</span>
-              </span>
-              <!-- GL -->
-              <span class="bg-purple-200 text-purple-900 px-1 py-0.5 rounded-md font-medium">
-                  {recipeTotals.gl ?? 0} GL
-              </span>
-          </div>
+          <NutrientBadges totals={recipeTotals} ratio={recipeTotals.ratio} />
         </div>
       {/if}
 
