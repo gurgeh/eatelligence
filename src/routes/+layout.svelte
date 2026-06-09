@@ -5,7 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store'; // Import get
-	import { CirclePlus, Database, Goal, CircleUserRound } from 'lucide-svelte';
+	import { CirclePlus, Database, Goal, CircleUserRound, Salad } from 'lucide-svelte';
 
 	let { children } = $props();
 
@@ -42,73 +42,77 @@
 		<p class="text-xl">Redirecting to login...</p>
 	</div>
 {:else}
-	<header class="bg-gray-100 shadow-sm">
-		<nav class="container mx-auto flex max-w-5xl items-center justify-between px-4 py-2">
-			<a href="/" class="text-lg font-semibold text-indigo-600 hover:text-indigo-800"
-				>Eatelligence</a
+	<header class="sticky top-0 z-30 border-b border-gray-200 bg-white/85 backdrop-blur">
+		<nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-2.5">
+			<a
+				href="/"
+				class="flex items-center gap-2 text-lg font-extrabold tracking-tight text-indigo-600"
 			>
-			<div class="flex items-center space-x-1 lg:space-x-4">
+				<span
+					class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm"
+				>
+					<Salad size={18} />
+				</span>
+				Eatelligence
+			</a>
+			<div class="flex items-center gap-0.5 lg:gap-1">
 				{#if currentAuth.user}
 					<a
 						href="/"
 						title="Log"
-						class="p-2 hover:text-indigo-600 lg:flex lg:items-center lg:p-0"
-						class:text-indigo-600={$page.url.pathname === '/'}
-						class:text-gray-700={$page.url.pathname !== '/'}
+						class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors"
+						class:bg-indigo-50={$page.url.pathname === '/'}
+						class:text-indigo-700={$page.url.pathname === '/'}
+						class:text-gray-600={$page.url.pathname !== '/'}
+						class:hover:bg-gray-100={$page.url.pathname !== '/'}
 					>
-						<CirclePlus size={$page.url.pathname === '/' ? 28 : 24} />
-						<span
-							class="hidden lg:ml-1.5 lg:inline"
-							class:font-semibold={$page.url.pathname === '/'}>Log</span
-						>
+						<CirclePlus size={20} />
+						<span class="hidden lg:inline">Log</span>
 					</a>
 					<a
 						href="/food-items"
 						title="Foods"
-						class="p-2 hover:text-indigo-600 lg:flex lg:items-center lg:p-0"
-						class:text-indigo-600={$page.url.pathname === '/food-items'}
-						class:text-gray-700={$page.url.pathname !== '/food-items'}
+						class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors"
+						class:bg-indigo-50={$page.url.pathname === '/food-items'}
+						class:text-indigo-700={$page.url.pathname === '/food-items'}
+						class:text-gray-600={$page.url.pathname !== '/food-items'}
+						class:hover:bg-gray-100={$page.url.pathname !== '/food-items'}
 					>
-						<Database size={$page.url.pathname === '/food-items' ? 28 : 24} />
-						<span
-							class="hidden lg:ml-1.5 lg:inline"
-							class:font-semibold={$page.url.pathname === '/food-items'}>Foods</span
-						>
+						<Database size={20} />
+						<span class="hidden lg:inline">Foods</span>
 					</a>
 					<a
 						href="/settings/targets"
 						title="Targets"
-						class="p-2 hover:text-indigo-600 lg:flex lg:items-center lg:p-0"
-						class:text-indigo-600={$page.url.pathname === '/settings/targets'}
-						class:text-gray-700={$page.url.pathname !== '/settings/targets'}
+						class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors"
+						class:bg-indigo-50={$page.url.pathname === '/settings/targets'}
+						class:text-indigo-700={$page.url.pathname === '/settings/targets'}
+						class:text-gray-600={$page.url.pathname !== '/settings/targets'}
+						class:hover:bg-gray-100={$page.url.pathname !== '/settings/targets'}
 					>
-						<Goal size={$page.url.pathname === '/settings/targets' ? 28 : 24} />
-						<span
-							class="hidden lg:ml-1.5 lg:inline"
-							class:font-semibold={$page.url.pathname === '/settings/targets'}>Targets</span
-						>
+						<Goal size={20} />
+						<span class="hidden lg:inline">Targets</span>
 					</a>
 					<a
 						href="/profile"
 						title="Profile"
-						class="p-2 hover:text-indigo-600 lg:flex lg:items-center lg:p-0"
-						class:text-indigo-600={$page.url.pathname === '/profile'}
-						class:text-gray-700={$page.url.pathname !== '/profile'}
+						class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors"
+						class:bg-indigo-50={$page.url.pathname === '/profile'}
+						class:text-indigo-700={$page.url.pathname === '/profile'}
+						class:text-gray-600={$page.url.pathname !== '/profile'}
+						class:hover:bg-gray-100={$page.url.pathname !== '/profile'}
 					>
-						<CircleUserRound size={$page.url.pathname === '/profile' ? 28 : 24} />
-						<span
-							class="hidden lg:ml-1.5 lg:inline"
-							class:font-semibold={$page.url.pathname === '/profile'}>Profile</span
-						>
+						<CircleUserRound size={20} />
+						<span class="hidden lg:inline">Profile</span>
 					</a>
 				{:else if $page.url.pathname !== '/login'}
-					<a href="/login" class="text-gray-700 hover:text-indigo-600">Login</a>
+					<a href="/login" class="text-sm font-medium text-gray-600 hover:text-indigo-600">Login</a>
 				{/if}
 			</div>
 		</nav>
 	</header>
 
-	<main class="container mx-auto max-w-5xl p-4">
+	<main class="mx-auto max-w-5xl p-4">
 		{@render children()}
 	</main>
 {/if}

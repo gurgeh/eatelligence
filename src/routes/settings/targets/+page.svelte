@@ -186,8 +186,8 @@
 	<title>Nutrition Targets - Eatelligence</title>
 </svelte:head>
 
-<div class="container mx-auto max-w-4xl p-4">
-	<h1 class="mb-6 text-2xl font-bold">Manage Nutrition Targets</h1>
+<div class="container mx-auto max-w-3xl p-4">
+	<h1 class="mb-6 text-2xl font-bold tracking-tight text-gray-900">Manage Nutrition Targets</h1>
 
 	{#if error}
 		<div
@@ -202,7 +202,7 @@
 	<!-- Add New Targets Section -->
 	<div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
 		<!-- Add Absolute Target -->
-		<div class="rounded border p-4 shadow">
+		<div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
 			<h2 class="mb-3 text-lg font-semibold">Add Absolute Target</h2>
 			<form on:submit|preventDefault={addAbsoluteTarget}>
 				<div class="mb-3">
@@ -251,7 +251,7 @@
 				</div>
 				<button
 					type="submit"
-					class="w-full rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-600"
+					class="w-full rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
 				>
 					Add Absolute Target
 				</button>
@@ -259,7 +259,7 @@
 		</div>
 
 		<!-- Add Relative Target -->
-		<div class="rounded border p-4 shadow">
+		<div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
 			<h2 class="mb-3 text-lg font-semibold">Add Relative Target</h2>
 			<form on:submit|preventDefault={addRelativeTarget}>
 				<div class="mb-3">
@@ -306,7 +306,7 @@
 				</div>
 				<button
 					type="submit"
-					class="w-full rounded bg-green-500 px-4 py-2 font-bold text-white hover:bg-green-600"
+					class="w-full rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
 				>
 					Add Relative Target
 				</button>
@@ -316,13 +316,17 @@
 
 	<!-- Existing Targets Section -->
 	<div>
-		<h2 class="mb-4 text-xl font-semibold">Current Targets</h2>
+		<h2 class="mb-4 text-xl font-semibold tracking-tight text-gray-900">Current Targets</h2>
 		{#if loading}
-			<p>Loading targets...</p>
+			<p class="text-gray-500">Loading targets…</p>
 		{:else if targets.length === 0}
-			<p>No targets defined yet.</p>
+			<div class="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
+				<p class="text-sm text-gray-500">
+					No targets defined yet. Add one above to start tracking against your goals.
+				</p>
+			</div>
 		{:else}
-			<div class="overflow-x-auto">
+			<div class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
 				<table class="min-w-full divide-y divide-gray-200">
 					<thead class="bg-gray-50">
 						<tr>

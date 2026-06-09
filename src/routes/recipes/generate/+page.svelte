@@ -1331,7 +1331,7 @@ If an ingredient does not match, return an object with its name (use simple, com
 					isPreparingImages ||
 					isLoadingList ||
 					isLoadingRecipe}
-				class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+				class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<Camera size={18} aria-hidden="true" />
 				Take photo
@@ -1387,7 +1387,7 @@ If an ingredient does not match, return an object with its name (use simple, com
 	<button
 		on:click={generateIngredientList}
 		disabled={!recipeName || isLoadingList || isLoadingRecipe || isPreparingImages}
-		class="rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+		class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
 	>
 		{#if isLoadingList}
 			Generating List...
@@ -1521,7 +1521,7 @@ If an ingredient does not match, return an object with its name (use simple, com
 									<button
 										type="button"
 										on:click={() => retryProcessIngredient(index)}
-										class="ml-1 rounded bg-blue-100 px-1 py-0 text-xs text-blue-700 hover:bg-blue-200"
+										class="ml-1 rounded bg-indigo-100 px-1 py-0 text-xs text-indigo-700 hover:bg-indigo-200"
 										title="Retry processing this ingredient"
 										disabled={isLoadingRecipe}
 									>
@@ -1659,7 +1659,7 @@ If an ingredient does not match, return an object with its name (use simple, com
 							<li>
 								<button
 									type="button"
-									class="w-full px-3 py-2 text-left text-sm text-blue-600 italic hover:bg-blue-100"
+									class="w-full px-3 py-2 text-left text-sm text-indigo-600 italic hover:bg-indigo-50"
 									on:mousedown|preventDefault={() => addNewIngredient(manualAddSearchTerm)}
 								>
 									Add "{manualAddSearchTerm.trim()}" as a new item (default 100g)
@@ -1675,8 +1675,8 @@ If an ingredient does not match, return an object with its name (use simple, com
 
 			<!-- Totals Display - Mimic styling from main page summary -->
 			{#if recipeTotals.count > 0}
-				<div class="mt-6 rounded border bg-gray-100 p-3">
-					<h2 class="mb-2 text-lg font-semibold">
+				<div class="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+					<h2 class="mb-3 text-xs font-semibold tracking-wider text-gray-500 uppercase">
 						Recipe Summary ({recipeTotals.count} ingredients)
 					</h2>
 					<NutrientBadges totals={recipeTotals} ratio={recipeTotals.ratio} />
@@ -1689,7 +1689,7 @@ If an ingredient does not match, return an object with its name (use simple, com
 					<button
 						on:click={processNewIngredients}
 						disabled={isLoadingList || isLoadingRecipe}
-						class="rounded bg-yellow-500 px-4 py-2 font-bold text-white hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-50"
+						class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{#if isLoadingRecipe}
 							Processing New Items...
@@ -1702,7 +1702,7 @@ If an ingredient does not match, return an object with its name (use simple, com
 					<button
 						on:click={saveFinalRecipe}
 						disabled={isLoadingList || isLoadingRecipe}
-						class="rounded bg-green-500 px-4 py-2 font-bold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+						class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{#if isLoadingRecipe}
 							Saving Recipe...

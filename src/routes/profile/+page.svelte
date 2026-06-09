@@ -146,10 +146,10 @@
 </script>
 
 <div class="container mx-auto max-w-2xl p-4">
-	<h1 class="mb-6 text-2xl font-bold">Profile</h1>
+	<h1 class="mb-6 text-2xl font-bold tracking-tight text-gray-900">Profile</h1>
 
 	<div class="space-y-5">
-		<section class="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+		<section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
 			<h2 class="mb-3 text-lg font-semibold text-gray-900">Account</h2>
 			{#if currentUserEmail}
 				<p class="text-sm text-gray-600">
@@ -158,7 +158,7 @@
 			{/if}
 		</section>
 
-		<section class="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+		<section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
 			<div class="mb-4 flex items-center gap-2">
 				<KeyRound size={20} class="text-indigo-600" />
 				<h2 class="text-lg font-semibold text-gray-900">Gemini API Key</h2>

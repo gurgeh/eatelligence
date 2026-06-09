@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
+	import { Salad } from 'lucide-svelte';
 
 	let loading = false;
 	let errorMsg: string | null = null;
@@ -55,9 +56,18 @@
 </script>
 
 <div class="flex min-h-screen flex-col items-center justify-center p-4">
-	<div class="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-md">
-		<h1 class="text-center text-3xl font-bold text-gray-800">Welcome to Eatelligence</h1>
-		<p class="text-center text-gray-600">Sign in to continue</p>
+	<div class="w-full max-w-md space-y-6 rounded-2xl border border-gray-200 bg-white p-8 shadow-lg">
+		<div class="flex justify-center">
+			<span
+				class="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm"
+			>
+				<Salad size={26} />
+			</span>
+		</div>
+		<h1 class="text-center text-3xl font-bold tracking-tight text-gray-900">
+			Welcome to Eatelligence
+		</h1>
+		<p class="text-center text-gray-500">Sign in to continue</p>
 
 		{#if errorMsg}
 			<div
@@ -72,7 +82,7 @@
 		<button
 			on:click={signInWithGoogle}
 			disabled={loading}
-			class="flex w-full items-center justify-center space-x-2 rounded-md bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+			class="flex w-full items-center justify-center space-x-2 rounded-lg bg-indigo-600 px-4 py-2.5 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 		>
 			<!-- Google Icon (SVG or Font Icon can be added here) -->
 			<svg

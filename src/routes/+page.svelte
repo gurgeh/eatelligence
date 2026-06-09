@@ -3,9 +3,10 @@
 	import { supabase } from '$lib/supabaseClient'; // Use $lib alias
 	import Fuse from 'fuse.js';
 	import { debounce } from 'lodash-es'; // Using lodash for debouncing search input
-	import { calculateKcal, getErrorMessage, ratio } from '$lib/utils';
+	import { getErrorMessage, ratio } from '$lib/utils';
 	import TargetDetailsModal from '$lib/components/TargetDetailsModal.svelte';
 	import NutrientBadges from '$lib/components/NutrientBadges.svelte';
+	import { Copy, Trash2 } from 'lucide-svelte';
 	import type { NutritionTarget, FoodLog, FoodItem } from '$lib/types';
 
 	// Define types for better clarity
@@ -789,7 +790,7 @@
 </script>
 
 <div class="container mx-auto max-w-5xl p-4">
-	<h1 class="mb-4 text-2xl font-bold">Log Food</h1>
+	<h1 class="mb-4 text-2xl font-bold tracking-tight text-gray-900">Log Food</h1>
 
 	<div class="relative mb-6">
 		<label for="food-search" class="mb-1 block text-sm font-medium text-gray-700"
@@ -799,8 +800,8 @@
 			type="text"
 			id="food-search"
 			bind:value={searchTerm}
-			placeholder="Start typing..."
-			class="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none"
+			placeholder="Start typing…"
+			class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 shadow-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 focus:outline-none"
 			disabled={loadingFoodItems}
 		/>
 		{#if loadingFoodItems}
@@ -810,13 +811,13 @@
 		{:else if searchTerm && searchResults.length > 0}
 			<!-- Positioned the list absolutely -->
 			<ul
-				class="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg"
+				class="absolute z-20 mt-1 max-h-60 w-full divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
 			>
 				{#each searchResults as item (item.id)}
 					<li>
 						<button
 							type="button"
-							class="block w-full cursor-pointer px-4 py-2 text-left hover:bg-gray-100"
+							class="block w-full cursor-pointer px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
 							on:click={() => logSelectedItem(item)}
 							on:keydown={(e) => e.key === 'Enter' && logSelectedItem(item)}
 						>
@@ -830,77 +831,69 @@
 		{/if}
 	</div>
 
-	<!-- Added margin-top to push content below the potentially overlapping search results -->
-	<hr class="my-6 mt-12" />
-
-	<!-- 7-Day Average Section -->
-	<div class="mb-6 rounded-md border bg-gray-100 p-4">
-		<h2 class="mb-2 text-lg font-semibold">7-Day Average Intake</h2>
+	<div class="mt-10 mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+		<h2 class="mb-3 text-xs font-semibold tracking-wider text-gray-500 uppercase">
+			7-Day Average Intake
+		</h2>
 		{#if loading7DayLogs}
-			<p class="text-sm text-gray-600">Calculating averages...</p>
+			<p class="text-sm text-gray-500">Calculating averages…</p>
 		{:else if error7DayLogs}
 			<p class="text-sm text-red-600">Error calculating averages: {error7DayLogs}</p>
 		{:else if sevenDayAverages}
-			<p class="mb-2 text-xs text-gray-500">
+			<NutrientBadges totals={sevenDayAverages} ratio={sevenDayAverages.ratio} />
+			<p class="mt-3 text-xs text-gray-400">
 				Based on {sevenDayAverages.daysWithLogs} day(s) with logs in the last 7 days.
 			</p>
-			<NutrientBadges totals={sevenDayAverages} ratio={sevenDayAverages.ratio} />
 		{:else}
-			<p class="text-sm text-gray-600">No log data found for the last 7 days.</p>
+			<p class="text-sm text-gray-500">No log data found for the last 7 days.</p>
 		{/if}
 	</div>
 
-	<!-- Recent Logs Section -->
 	<div>
 		<div class="mb-3 flex items-center justify-between">
-			<h2 class="text-xl font-semibold">Recent Logs</h2>
+			<h2 class="text-xl font-semibold tracking-tight text-gray-900">Recent Logs</h2>
 			<a
 				href="/create-recipe"
-				class="rounded-md border border-indigo-600 px-3 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
+				class="rounded-lg border border-indigo-600 px-3 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
 			>
 				Create Recipe
 			</a>
 		</div>
 		{#if loadingLogs}
-			<p>Loading recent logs...</p>
+			<p class="text-gray-500">Loading recent logs…</p>
 		{:else if logError}
 			<p class="text-red-600">Error: {logError}</p>
 		{:else if displayItems.length > 0}
-			<ul class="space-y-2">
+			<ul
+				class="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+			>
 				{#each displayItems as item (item.type === 'log' ? item.data.id : item.date)}
 					{#if item.type === 'summary'}
-						<!-- Daily Summary Divider - Made clickable via button -->
-						<li class="border-b-2 border-gray-300">
-							<!-- Structural border only -->
+						<li>
 							<button
 								type="button"
-								class="block w-full pt-4 pb-1 text-left transition duration-150 ease-in-out hover:bg-gray-100 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 focus:outline-none"
+								class="block w-full bg-gray-50 px-3 pt-3 pb-2.5 text-left transition hover:bg-gray-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none focus:ring-inset"
 								on:click={() => openTargetModal(item.date, item.totals)}
 								on:keydown={(e) => {
 									if (e.key === 'Enter' || e.key === ' ') openTargetModal(item.date, item.totals);
 								}}
 								title="Click to view target details for {item.date}"
 							>
-								<div class="mb-1 flex items-baseline justify-between">
-									<h3 class="text-base font-semibold text-gray-700">{item.date}</h3>
-									<!-- Reduced size from text-lg -->
-									<!-- Removed "Daily Totals" span -->
+								<div class="mb-1.5 flex items-baseline justify-between">
+									<h3 class="text-sm font-bold tracking-wide text-gray-700">{item.date}</h3>
 								</div>
 								<NutrientBadges totals={item.totals} ratio={item.ratio} pointerEventsNone />
 							</button>
-							<!-- Close button -->
 						</li>
 					{:else if item.type === 'log'}
 						{@const log = item.data}
-						<!-- Alias item.data to log for readability -->
-						<!-- Individual Log Item -->
-						<li class="rounded-md border bg-gray-50 p-2">
+						<li class="px-3 py-2.5 transition hover:bg-gray-50">
 							<div class="flex min-h-[2.5rem] items-center justify-between">
 								<!-- Main log info row -->
 								<div class="mr-2 flex flex-grow items-center overflow-hidden">
 									<!-- Removed space-x-3 -->
 									<!-- Timestamp Display/Edit Area -->
-									<div class="relative mr-2 w-12 flex-shrink-0 text-sm text-gray-600">
+									<div class="relative mr-2 w-12 flex-shrink-0 text-sm text-gray-400">
 										<!-- Reduced width from w-16, keep mr-2 -->
 										{#if editingLogId === log.id && editingProperty === 'timestamp'}
 											<!-- datetime-local input, visually minimal/hidden but functional -->
@@ -935,7 +928,7 @@
 									<!-- End Timestamp Area -->
 
 									<span
-										class="mr-2 min-w-0 flex-shrink truncate text-sm"
+										class="mr-2 min-w-0 flex-shrink truncate text-sm font-medium text-gray-900"
 										title={log.food_items?.name ?? '(Deleted item)'}
 									>
 										<!-- Reduced size, add mr-2 -->
@@ -973,97 +966,45 @@
 									</div>
 								</div>
 
-								<div class="flex flex-shrink-0 items-center space-x-1">
+								<div class="flex flex-shrink-0 items-center gap-0.5">
 									<button
 										type="button"
 										on:click={() => copyLog(log)}
-										class="rounded bg-blue-100 p-1 text-blue-700 hover:bg-blue-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:outline-none"
+										class="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
 										aria-label={`Copy log for ${log.food_items?.name ?? '(Deleted item)'} as new entry`}
 										title="Copy as new entry (now)"
 									>
-										📋
+										<Copy size={16} />
 									</button>
 									<button
 										type="button"
 										on:click={() => deleteLog(log.id, log.food_items?.name)}
-										class="rounded bg-red-100 p-1 text-red-700 hover:bg-red-200 focus:ring-2 focus:ring-red-500 focus:ring-offset-1 focus:outline-none"
+										class="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 focus:ring-2 focus:ring-red-500 focus:outline-none"
 										aria-label={`Delete log for ${log.food_items?.name ?? '(Deleted item)'}`}
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-4 w-4"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-											stroke-width="2"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												d="M6 18L18 6M6 6l12 12"
-											/>
-										</svg>
+										<Trash2 size={16} />
 									</button>
 								</div>
 							</div>
-							<!-- End main log info row -->
-
-							<!-- Nutritional Summary Row - Styled Badges -->
 							{#if log.food_items}
-								<div
-									class="mt-1 flex flex-wrap items-center gap-x-1 gap-y-1 border-t border-gray-200 pt-1 pl-1 text-xs"
-								>
-									<!-- Reduced gap-x -->
-									<!-- Calculated Kcal -->
-									<span class="rounded-md bg-blue-100 px-1 py-0.5 text-blue-800">
-										<!-- Reduced px, changed Cal to C -->
-										{calculateKcal({
+								<div class="mt-1.5">
+									<NutrientBadges
+										totals={{
 											protein: (log.food_items.protein ?? 0) * log.multiplier,
 											fat: (log.food_items.fat ?? 0) * log.multiplier,
 											carbs: (log.food_items.carbs ?? 0) * log.multiplier,
-											fibers: (log.food_items.fibers ?? 0) * log.multiplier
-										})} C
-									</span>
-									<!-- Protein, Fat, Carbs -->
-									<span class="rounded-md bg-green-100 px-1 py-0.5 text-green-800">
-										<!-- Reduced px -->
-										{Math.round((log.food_items.protein ?? 0) * log.multiplier)}, {Math.round(
-											(log.food_items.fat ?? 0) * log.multiplier
-										)}, {Math.round((log.food_items.carbs ?? 0) * log.multiplier)}
-										<span class="text-[0.65rem] text-green-600">PFC</span>
-									</span>
-									<!-- Fibers, Sugar -->
-									<span class="rounded-md bg-yellow-100 px-1 py-0.5 text-yellow-800">
-										<!-- Reduced px -->
-										{Math.round((log.food_items.fibers ?? 0) * log.multiplier)}, {Math.round(
-											(log.food_items.sugar ?? 0) * log.multiplier
-										)} <span class="text-[0.65rem] text-yellow-600">FiS</span>
-									</span>
-									<!-- MUFA, PUFA, SFA -->
-									<span class="rounded-md bg-orange-100 px-1 py-0.5 text-orange-800">
-										<!-- Reduced px -->
-										{Math.round((log.food_items.mufa ?? 0) * log.multiplier)}, {Math.round(
-											(log.food_items.pufa ?? 0) * log.multiplier
-										)}, {Math.round((log.food_items.sfa ?? 0) * log.multiplier)}
-										<span class="text-[0.65rem] text-orange-600">MPS</span>
-									</span>
-									<!-- Omega 6:3 -->
-									<span class="rounded-md bg-orange-100 px-1 py-0.5 text-orange-800">
-										<!-- Reduced px -->
-										{#if Math.round((log.food_items.omega6 ?? 0) * log.multiplier) === 0 && Math.round((log.food_items.omega3 ?? 0) * log.multiplier) === 0}
-											-
-										{:else}
-											{Math.round((log.food_items.omega6 ?? 0) * log.multiplier)}, {Math.round(
-												(log.food_items.omega3 ?? 0) * log.multiplier
-											)}
-										{/if}
-										<span class="text-[0.65rem] text-orange-600">6:3</span>
-									</span>
-									<!-- GL -->
-									<span class="rounded-md bg-purple-100 px-1 py-0.5 text-purple-800">
-										<!-- Reduced px -->
-										{Math.round((log.food_items.gl ?? 0) * log.multiplier)} GL
-									</span>
+											fibers: (log.food_items.fibers ?? 0) * log.multiplier,
+											sugar: (log.food_items.sugar ?? 0) * log.multiplier,
+											mufa: (log.food_items.mufa ?? 0) * log.multiplier,
+											pufa: (log.food_items.pufa ?? 0) * log.multiplier,
+											sfa: (log.food_items.sfa ?? 0) * log.multiplier,
+											gl: (log.food_items.gl ?? 0) * log.multiplier
+										}}
+										ratio={ratio(
+											(log.food_items.omega6 ?? 0) * log.multiplier,
+											(log.food_items.omega3 ?? 0) * log.multiplier
+										) ?? ((log.food_items.omega6 ?? 0) * log.multiplier > 0 ? '∞:1' : '-')}
+									/>
 								</div>
 							{/if}
 						</li>

@@ -6,6 +6,7 @@
 	import type { FoodItem, ServingUnit } from '$lib/types';
 	import { GoogleGenAI, Type } from '@google/genai';
 	import { calculateKcal, getErrorMessage } from '$lib/utils';
+	import { Trash2 } from 'lucide-svelte';
 	import {
 		clearGeminiKeyForUser,
 		loadGeminiKeyForUser,
@@ -565,7 +566,7 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 			type="search"
 			bind:value={searchQuery}
 			placeholder="Search food items by name or comment..."
-			class="w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+			class="w-full rounded-lg border border-gray-300 bg-white p-2.5 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 		/>
 	</div>
 
@@ -574,7 +575,7 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 		<button
 			type="button"
 			on:click={showCreateForm}
-			class="rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
+			class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
 			disabled={isCreating}
 		>
 			+ Add New Item
@@ -639,7 +640,7 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 						type="button"
 						on:click={autoFillNutrition}
 						disabled={isAutoFilling || !newItem.name?.trim()}
-						class="mt-1 rounded bg-blue-500 px-2 py-1 text-xs text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+						class="mt-1 rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{#if isAutoFilling}
 							<span>Filling...</span>
@@ -770,7 +771,8 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 				<button
 					type="button"
 					on:click={saveNewItem}
-					class="rounded bg-green-600 px-3 py-1 text-white hover:bg-green-700">Save Item</button
+					class="rounded-md bg-indigo-600 px-3 py-1.5 font-medium text-white hover:bg-indigo-700"
+					>Save Item</button
 				>
 			</div>
 		</div>
@@ -790,7 +792,7 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 	<!-- Food Items List -->
 	<ul class="space-y-4">
 		{#each filteredItems as item (item.id)}
-			<li class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+			<li class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
 				<div class="mb-2 flex items-start justify-between">
 					<!-- Item Name & Serving -->
 					<div class="mr-4 flex-grow">
@@ -892,10 +894,10 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 					<div class="flex-shrink-0">
 						<button
 							on:click={() => deleteItem(item.id)}
-							class="p-1 text-red-500 hover:text-red-700"
+							class="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
 							aria-label="Delete item"
 						>
-							🗑️
+							<Trash2 size={18} />
 						</button>
 						<!-- Add Edit button if not using inline editing for all fields -->
 					</div>
@@ -904,12 +906,16 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 				<!-- Nutritional Info Badges (Inline Editable) - Reordered & Styled -->
 				<div class="flex flex-wrap gap-2 text-xs">
 					<!-- Calculated Kcal -->
-					<div class="rounded-md bg-blue-100 px-1.5 py-0.5 text-blue-800">
+					<div
+						class="rounded-md bg-indigo-100 px-1.5 py-0.5 font-medium text-indigo-800 tabular-nums"
+					>
 						<span class="font-medium text-gray-500 uppercase">KCAL:</span>
 						<span class="ml-1">{calculateKcal(item)}</span>
 					</div>
 					<!-- Protein, Fat, Carbs (PFC) -->
-					<div class="rounded-md bg-green-100 px-1.5 py-0.5 text-green-800">
+					<div
+						class="rounded-md bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-800 tabular-nums"
+					>
 						<span class="font-medium text-gray-500 uppercase">PFC:</span>
 						{#each pfcFields as prop (prop)}
 							{#if editingItemId === item.id && editingProperty === prop}
@@ -938,7 +944,9 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 						{/each}
 					</div>
 					<!-- Fibers, Sugar (FiS) -->
-					<div class="rounded-md bg-yellow-100 px-1.5 py-0.5 text-yellow-800">
+					<div
+						class="rounded-md bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800 tabular-nums"
+					>
 						<span class="font-medium text-gray-500 uppercase">FiS:</span>
 						{#each fiberSugarFields as prop (prop)}
 							{#if editingItemId === item.id && editingProperty === prop}
@@ -967,7 +975,9 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 						{/each}
 					</div>
 					<!-- MUFA, PUFA, SFA (MPS) -->
-					<div class="rounded-md bg-orange-100 px-1.5 py-0.5 text-orange-800">
+					<div
+						class="rounded-md bg-orange-100 px-1.5 py-0.5 font-medium text-orange-800 tabular-nums"
+					>
 						<span class="font-medium text-gray-500 uppercase">MPS:</span>
 						{#each fatDetailFields as prop (prop)}
 							{#if editingItemId === item.id && editingProperty === prop}
@@ -996,7 +1006,7 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 						{/each}
 					</div>
 					<!-- Omega 6, Omega 3 (6:3) -->
-					<div class="rounded-md bg-orange-100 px-1.5 py-0.5 text-orange-800">
+					<div class="rounded-md bg-sky-100 px-1.5 py-0.5 font-medium text-sky-800 tabular-nums">
 						<span class="font-medium text-gray-500 uppercase">6:3:</span>
 						<!-- Removed outer #if to always show editable values -->
 						{#each omegaFields as prop (prop)}
@@ -1026,7 +1036,9 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 						{/each}
 					</div>
 					<!-- GL -->
-					<div class="rounded-md bg-purple-100 px-1.5 py-0.5 text-purple-800">
+					<div
+						class="rounded-md bg-violet-100 px-1.5 py-0.5 font-medium text-violet-800 tabular-nums"
+					>
 						<span class="font-medium text-gray-500 uppercase">GL:</span>
 						{#if editingItemId === item.id && editingProperty === 'gl'}
 							<input
