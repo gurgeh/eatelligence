@@ -1,0 +1,1 @@
+import{w as r}from"./DgxZVWcP.js";import{s as a}from"./DB-p2xzF.js";const l={user:null,session:null,loading:!0,error:null},e=r(l);a.auth.onAuthStateChange((u,t)=>{e.set({user:(t==null?void 0:t.user)??null,session:t,loading:!1,error:null})});export{e as a};
