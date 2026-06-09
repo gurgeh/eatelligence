@@ -143,8 +143,9 @@ This summary consolidates key decisions and implementation details from recent t
   - Allowed units: `["g", "dl", "pcs", "portion"]`.
   - Applies to both creating new items and inline editing existing items.
 - **Gemini Auto-fill Nutrition (`/food-items`):**
-  - Uses `@google/genai` library for direct frontend calls to `gemini-2.5-pro-preview-03-25`.
-  - API key stored in Local Storage (`geminiApiKey`).
+  - Uses `@google/genai` library for direct frontend calls to Gemini.
+  - API key stored in `user_settings.gemini_api_key` and mirrored in Local Storage (`geminiApiKey`) as a compatibility fallback.
+  - The `/profile` page can save, replace, clear, or promote a browser-only key to the profile-backed setting.
   - Google Search grounding is enabled.
   - **Prompting Strategy:**
     - Requests nutritional data _per the user-specified serving size_ (`serving_qty` and `serving_unit`) entered in the form.

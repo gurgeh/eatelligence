@@ -64,7 +64,7 @@
 - [x] Host on eatelligence.fendrich.se (GitHub Pages)
 - [x] Add npm script "deploy" for GitHub Pages deployment (includes --dotfiles)
 - [x] Is the PWA manifest correct? (Added `display: standalone`, `start_url`, `scope`, `background_color` to manifest in `vite.config.ts`. Added iOS specific tags and `mobile-web-app-capable` meta tag to `app.html`.)
-- [ ] Setting new LLM API key. Can normal people get the key somewhere?
+- [x] Setting new LLM API key. Can normal people get the key somewhere? (Profile page can save/replace/clear the Gemini key; DB-backed via `user_settings`, with browser fallback until migration is applied.)
 - [ ] Prettier interface. Maybe logo?
 - [x] Mean for last 7 days
 - [ ] Non-breaking space for ( 100 g ) in add new item

@@ -19,6 +19,9 @@ Thumbs.db
 !.env.example
 !.env.test
 
+# Supabase CLI local state
+supabase/.temp/
+
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*

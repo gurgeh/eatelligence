@@ -6,7 +6,13 @@
 	import type { FoodItem, ServingUnit } from '$lib/types';
 	import { GoogleGenAI, Type } from '@google/genai';
 	import { calculateKcal, getErrorMessage } from '$lib/utils';
-	import { loadGeminiKey, saveGeminiKey } from '$lib/geminiKey';
+	import {
+		clearGeminiKeyForUser,
+		loadGeminiKeyForUser,
+		saveGeminiKeyForUser,
+		type GeminiKeyResult,
+		type GeminiKeySource
+	} from '$lib/geminiKey';
 
 	let foodItems: FoodItem[] = [];
 	let filteredItems: FoodItem[] = [];
@@ -91,6 +97,8 @@
 	let autoFillError: string | null = null;
 	let showApiKeyInput = false; // Control visibility of API key input
 	let apiKeyInput = ''; // Temporary input for the API key field
+	let geminiKeySource: GeminiKeySource = 'none';
+	let geminiKeyStorageWarning: string | null = null;
 
 	// --- Inline Editing Functions (Adapted from log view) ---
 	function startEditing(item: FoodItem, property: keyof FoodItem) {
@@ -165,8 +173,8 @@
 			cancelEdit();
 		} catch (err: unknown) {
 			console.error(`Error updating ${editingProperty}:`, err);
-			// Optionally show user error
-			cancelEdit(); // Cancel edit on error
+			error = `Failed to save ${String(editingProperty)}: ${getErrorMessage(err)}`;
+			cancelEdit(); // Revert the field; the error banner tells the user it didn't save
 		}
 	}
 
@@ -310,17 +318,60 @@
 		}
 	}
 
-	function loadApiKey() {
-		geminiApiKey = loadGeminiKey();
-		apiKeyInput = geminiApiKey;
+	function applyGeminiKeyResult(result: GeminiKeyResult) {
+		geminiApiKey = result.key;
+		apiKeyInput = result.key;
+		geminiKeySource = result.source;
+		geminiKeyStorageWarning = result.errorMessage ?? null;
 	}
 
-	function saveApiKey() {
-		saveGeminiKey(apiKeyInput);
-		geminiApiKey = apiKeyInput;
-		showApiKeyInput = false;
+	async function loadApiKey() {
+		applyGeminiKeyResult(await loadGeminiKeyForUser());
+	}
+
+	function showApiKeyEditor() {
+		apiKeyInput = geminiApiKey;
+		showApiKeyInput = true;
 		autoFillError = null;
-		alert('API Key saved successfully!');
+	}
+
+	async function saveApiKey() {
+		const savedKey = apiKeyInput.trim();
+		if (!savedKey) {
+			await clearApiKey();
+			return;
+		}
+
+		try {
+			applyGeminiKeyResult(await saveGeminiKeyForUser(savedKey));
+			showApiKeyInput = false;
+			autoFillError = null;
+			alert(
+				geminiKeySource === 'profile'
+					? 'API Key saved to profile.'
+					: 'API Key saved in this browser.'
+			);
+		} catch (err: unknown) {
+			autoFillError = getErrorMessage(err);
+			showApiKeyInput = true;
+		}
+	}
+
+	async function clearApiKey() {
+		try {
+			applyGeminiKeyResult(await clearGeminiKeyForUser());
+			showApiKeyInput = true;
+			autoFillError = null;
+		} catch (err: unknown) {
+			autoFillError = getErrorMessage(err);
+			showApiKeyInput = true;
+		}
+	}
+
+	function getGeminiKeyStatusText() {
+		if (geminiKeySource === 'profile') return 'Gemini key saved in profile';
+		if (geminiKeySource === 'browser') return 'Gemini key saved on this device';
+		return 'Uses Gemini AI. Save a key to auto-fill.';
 	}
 
 	// --- Gemini Auto-fill Function ---
@@ -479,7 +530,13 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 			newItem = { ...newItem };
 		} catch (err: unknown) {
 			console.error('Error during Gemini auto-fill:', err);
-			autoFillError = `Failed to auto-fill: ${getErrorMessage(err)}`;
+			const message = getErrorMessage(err);
+			if (message.includes('API key not valid')) {
+				autoFillError = 'Gemini API Key is invalid. Please check and save it again.';
+				showApiKeyInput = true;
+			} else {
+				autoFillError = `Failed to auto-fill: ${message}`;
+			}
 		} finally {
 			isAutoFilling = false;
 		}
@@ -535,21 +592,30 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 					<label for="gemini-api-key" class="block text-sm font-medium text-yellow-800"
 						>Enter Gemini API Key:</label
 					>
-					<div class="mt-1 flex rounded-md shadow-sm">
+					<div class="mt-1 flex flex-col gap-2 sm:flex-row">
 						<input
 							type="password"
 							id="gemini-api-key"
 							bind:value={apiKeyInput}
-							class="block w-full flex-1 rounded-none rounded-l-md border-gray-300 px-2 py-1 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+							class="block w-full flex-1 rounded-md border-gray-300 px-2 py-1 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 							placeholder="Paste your API key here"
 						/>
 						<button
 							type="button"
 							on:click={saveApiKey}
-							class="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-500 hover:bg-gray-100"
+							class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-gray-50 px-3 py-1 text-sm text-gray-600 hover:bg-gray-100"
 						>
 							Save Key
 						</button>
+						{#if geminiApiKey}
+							<button
+								type="button"
+								on:click={clearApiKey}
+								class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
+							>
+								Clear
+							</button>
+						{/if}
 					</div>
 					{#if autoFillError && autoFillError.includes('API Key')}
 						<p class="mt-1 text-xs text-red-600">{autoFillError}</p>
@@ -584,7 +650,33 @@ Do not reference sources or provide citations in the comment field. Be brief.`;
 					{#if autoFillError && !autoFillError.includes('API Key')}
 						<p class="mt-1 text-xs text-red-600">{autoFillError}</p>
 					{/if}
-					<p class="mt-1 text-xs text-gray-500">Uses Gemini AI. Requires saved API Key.</p>
+					<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+						{#if geminiApiKey}
+							<span class="text-green-700">{getGeminiKeyStatusText()}</span>
+							<button
+								type="button"
+								on:click={showApiKeyEditor}
+								class="text-indigo-700 hover:underline"
+							>
+								Change
+							</button>
+							<button type="button" on:click={clearApiKey} class="text-gray-600 hover:underline">
+								Clear
+							</button>
+						{:else}
+							<span class="text-gray-500">{getGeminiKeyStatusText()}</span>
+							<button
+								type="button"
+								on:click={showApiKeyEditor}
+								class="text-indigo-700 hover:underline"
+							>
+								Add key
+							</button>
+						{/if}
+					</div>
+					{#if geminiKeyStorageWarning}
+						<p class="mt-1 text-xs text-yellow-700">{geminiKeyStorageWarning}</p>
+					{/if}
 				</div>
 				<div>
 					<label for="new-item-qty" class="block text-sm font-medium text-gray-700"

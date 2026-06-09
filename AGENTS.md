@@ -96,6 +96,14 @@ UNIQUE(`nutrient_1`, `nutrient_2`).
 - `nutrient_2 IS NULL` → absolute target (grams/kcal).
 - `nutrient_2 IS NOT NULL` → relative target (ratio or percentage).
 
+### `user_settings`
+
+`user_id (PK), gemini_api_key (nullable), created_at, updated_at`
+
+- One row per authenticated user.
+- Stores the user's Gemini API key so it works across browsers/devices.
+- `localStorage.geminiApiKey` is only a compatibility mirror/fallback.
+
 ---
 
 ## Kcal Calculation
@@ -122,8 +130,8 @@ Formula (TEF-adjusted): `kcal = (protein × 3) + (carbs × 3.7) + (fibers × 2) 
 ## Gemini AI Integration
 
 - Library: `@google/genai`, called directly from the frontend (no backend proxy).
-- API key stored in browser `localStorage` under key `geminiApiKey`.
-- Model: `gemini-2.5-pro-preview-03-25` with Google Search grounding enabled.
+- API key is stored in `user_settings.gemini_api_key` and mirrored in browser `localStorage` under key `geminiApiKey`.
+- Model: `gemini-3.5-flash` with Google Search grounding enabled where nutrition lookup needs it.
 - Used in `/food-items` (nutrition auto-fill) and `/recipes/generate` (ingredient lookup).
 - Prompts request data **per the user-specified serving size**, not per 100 g.
 - LLM returns `carbs` as net carbs (EU standard, fibers excluded).
