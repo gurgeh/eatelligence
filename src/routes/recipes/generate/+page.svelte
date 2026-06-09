@@ -3,13 +3,13 @@
 	import type { FoodItem } from '$lib/types';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { GoogleGenAI, Type } from '@google/genai';
-	import { calculateKcal, ratio } from '$lib/utils';
+	import { ratio } from '$lib/utils';
 	import Fuse, { type FuseResult } from 'fuse.js';
 	import NutrientBadges from '$lib/components/NutrientBadges.svelte';
 	import { loadGeminiKey, saveGeminiKey } from '$lib/geminiKey';
 	import { Camera, ImagePlus, X } from 'lucide-svelte';
 
-	function assert(condition: any, message: string): asserts condition {
+	function assert(condition: unknown, message: string): asserts condition {
 		if (!condition) throw new Error(message);
 	}
 
@@ -17,24 +17,39 @@
 		return error instanceof Error ? error.message : String(error);
 	}
 
+	type NutritionData = Pick<
+		FoodItem,
+		| 'protein'
+		| 'fat'
+		| 'carbs'
+		| 'fibers'
+		| 'sugar'
+		| 'mufa'
+		| 'pufa'
+		| 'sfa'
+		| 'gl'
+		| 'omega3'
+		| 'omega6'
+	>;
+
+	type ParsedIngredient = {
+		name?: string;
+		quantity?: number;
+		unit?: 'g' | 'dl' | 'pcs' | 'portion' | string;
+		id?: number;
+		multiplier?: number;
+	};
+
+	function normalizeIngredientUnit(unit: ParsedIngredient['unit']): 'g' | 'dl' | 'pcs' | 'portion' {
+		return unit === 'dl' || unit === 'pcs' || unit === 'portion' ? unit : 'g';
+	}
+
 	type IngredientResult = {
 		id: number;
 		multiplier: number;
 		serving_qty: number;
 		serving_unit: string;
-		nutrition: {
-			protein: number | null;
-			fat: number | null;
-			carbs: number | null;
-			fibers: number | null;
-			sugar: number | null;
-			mufa: number | null;
-			pufa: number | null;
-			sfa: number | null;
-			gl: number | null;
-			omega3: number | null;
-			omega6: number | null;
-		};
+		nutrition: NutritionData;
 	};
 
 	async function processSingleIngredient(
@@ -195,10 +210,7 @@
 		errorMsg?: string;
 		isManuallyAdded?: boolean; // Flag to differentiate origin of new items
 		// Store fetched/calculated nutrition for final sum
-		nutrition?: Omit<
-			FoodItem,
-			'id' | 'name' | 'comment' | 'serving_qty' | 'serving_unit' | 'created_at'
-		> | null;
+		nutrition?: NutritionData | null;
 	};
 	let generatedIngredients: GeneratedIngredient[] = [];
 	let isLoadingList = false;
@@ -211,10 +223,7 @@
 
 	// --- Recipe Totals State ---
 	// Define the keys we expect to sum and round (calories removed)
-	const nutrientKeys: (keyof Omit<
-		FoodItem,
-		'id' | 'name' | 'serving_unit' | 'serving_qty' | 'comment' | 'created_at'
-	>)[] = [
+	const nutrientKeys = [
 		'protein',
 		'fat',
 		'carbs',
@@ -226,12 +235,13 @@
 		'gl',
 		'omega3',
 		'omega6'
-	];
-	// Initialize totals with all expected keys set to 0, plus count and ratio
-	let recipeTotals: { [K in (typeof nutrientKeys)[number]]?: number } & {
+	] as const satisfies readonly (keyof NutritionData)[];
+	type RecipeTotals = { [K in (typeof nutrientKeys)[number]]?: number } & {
 		count: number;
 		ratio?: string;
-	} = { count: 0 };
+	};
+	// Initialize totals with all expected keys set to 0, plus count and ratio
+	let recipeTotals: RecipeTotals = { count: 0 };
 	nutrientKeys.forEach((key) => (recipeTotals[key] = 0));
 
 	let errorMessage = '';
@@ -397,9 +407,7 @@
 	// --- Calculate Recipe Totals Function ---
 	function calculateRecipeTotals() {
 		// Initialize newTotals with all expected keys set to 0 for calculation
-		const newTotals: { [K in (typeof nutrientKeys)[number]]?: number } & { count: number } = {
-			count: 0
-		};
+		const newTotals: RecipeTotals = { count: 0 };
 		nutrientKeys.forEach((key) => (newTotals[key] = 0));
 		let calculatedCount = 0;
 
@@ -440,7 +448,7 @@
 		const calculatedRatio = ratio(newTotals.omega6, newTotals.omega3); // Use the imported ratio function
 
 		// Assign the calculated ratio (string | undefined)
-		(newTotals as any).ratio = calculatedRatio; // Keep 'any' cast as type wasn't updated
+		newTotals.ratio = calculatedRatio;
 
 		recipeTotals = newTotals; // Assign the final totals to the state variable
 	}
@@ -475,8 +483,8 @@
 				includeScore: true,
 				threshold: 0.4 // Adjust threshold as needed
 			});
-		} catch (err: any) {
-			errorMessage = `Error fetching food items: ${err.message}`;
+		} catch (err: unknown) {
+			errorMessage = `Error fetching food items: ${getErrorMessage(err)}`;
 			console.error(err);
 		} finally {
 			isFetchingExisting = false;
@@ -576,9 +584,9 @@ If an ingredient does not match, return an object with its name (use simple, com
 			}
 
 			// 4. Parse JSON Response
-			let parsedIngredients: any[];
+			let parsedIngredients: ParsedIngredient[];
 			try {
-				parsedIngredients = JSON.parse(responseText);
+				parsedIngredients = JSON.parse(responseText) as ParsedIngredient[];
 			} catch (parseError) {
 				console.error(
 					'Failed to parse Gemini JSON response:',
@@ -605,11 +613,11 @@ If an ingredient does not match, return an object with its name (use simple, com
 					});
 				} else {
 					// Ensure new items have the correct structure and calculate multiplier
-					const llmQuantity = ingredient.quantity;
-					const llmUnit = ingredient.unit;
+					const llmQuantity = ingredient.quantity ?? 0;
+					const llmUnit = normalizeIngredientUnit(ingredient.unit);
 					// Determine standard size for nutrition fetching later
-					const standardUnit = llmUnit === 'dl' ? 'dl' : 'g';
-					const standardQty = standardUnit === 'dl' ? 1 : 100;
+					const standardUnit = llmUnit;
+					const standardQty = standardUnit === 'g' ? 100 : 1;
 					// Calculate multiplier based on LLM quantity vs standard quantity
 					const calculatedMultiplier = llmQuantity / standardQty;
 
@@ -633,13 +641,14 @@ If an ingredient does not match, return an object with its name (use simple, com
 			if (includedContextImages) {
 				successMessage = 'Ingredient list generated. Image context cleared.';
 			}
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const message = getErrorMessage(err);
 			// Handle potential API key errors specifically
-			if (err.message?.includes('API key not valid')) {
+			if (message.includes('API key not valid')) {
 				errorMessage = 'Gemini API Key is invalid. Please check and save it again.';
 				showApiKeyInput = true;
 			} else {
-				errorMessage = `Error generating list: ${err.message}`;
+				errorMessage = `Error generating list: ${message}`;
 			}
 			console.error(err);
 		} finally {
@@ -717,8 +726,8 @@ If an ingredient does not match, return an object with its name (use simple, com
 				}
 			];
 			calculateRecipeTotals(); // Update totals
-		} catch (err: any) {
-			errorMessage = `Error adding existing item: ${err.message}`;
+		} catch (err: unknown) {
+			errorMessage = `Error adding existing item: ${getErrorMessage(err)}`;
 			console.error(err);
 		} finally {
 			isFetchingExisting = false;
@@ -810,11 +819,11 @@ If an ingredient does not match, return an object with its name (use simple, com
 				try {
 					const processed = await processSingleIngredient(genAI, name, quantity, unit);
 					return { status: 'fulfilled', originalIndex, ...processed };
-				} catch (itemError: any) {
+				} catch (itemError: unknown) {
 					console.error(`Error processing "${name}" (index ${originalIndex}):`, itemError);
 					throw {
 						originalIndex,
-						reason: itemError instanceof Error ? itemError.message : String(itemError)
+						reason: getErrorMessage(itemError)
 					};
 				}
 			});
@@ -850,7 +859,7 @@ If an ingredient does not match, return an object with its name (use simple, com
 						multiplier: number;
 						serving_qty: number;
 						serving_unit: string;
-						nutrition: any;
+						nutrition: NutritionData;
 					};
 					// Return a *new* object with all updated properties
 					return {
@@ -916,13 +925,14 @@ If an ingredient does not match, return an object with its name (use simple, com
 				// Error message should already be set by fetchNutritionForExistingIdleItems
 				console.warn("Processing finished, but not all items are 'done'. Check for errors.");
 			}
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const message = getErrorMessage(err);
 			// Handle potential API key errors specifically
-			if (err.message?.includes('API key not valid')) {
+			if (message.includes('API key not valid')) {
 				errorMessage = 'Gemini API Key is invalid. Please check and save it again.';
 				showApiKeyInput = true;
 			} else {
-				errorMessage = `Error processing ingredients: ${err.message}`;
+				errorMessage = `Error processing ingredients: ${message}`;
 			}
 			console.error(err);
 		} finally {
@@ -995,9 +1005,10 @@ If an ingredient does not match, return an object with its name (use simple, com
 				generatedIngredients = [...generatedIngredients]; // Trigger reactivity
 				calculateRecipeTotals(); // Recalculate totals after fetching existing item data
 			}
-		} catch (err: any) {
+		} catch (err: unknown) {
+			const message = getErrorMessage(err);
 			// Handle errors during fetch, potentially marking items as failed
-			errorMessage = err.message; // Display the fetch error
+			errorMessage = message; // Display the fetch error
 			// Mark the items we tried to fetch as errored
 			let errorUpdateNeeded = false;
 			for (let i = 0; i < generatedIngredients.length; i++) {
@@ -1009,7 +1020,7 @@ If an ingredient does not match, return an object with its name (use simple, com
 					ingredient.status === 'idle'
 				) {
 					ingredient.status = 'error';
-					ingredient.errorMsg = `Failed to fetch nutrition: ${err.message}`;
+					ingredient.errorMsg = `Failed to fetch nutrition: ${message}`;
 					errorUpdateNeeded = true;
 				}
 			}
@@ -1089,8 +1100,8 @@ If an ingredient does not match, return an object with its name (use simple, com
 			successMessage = `Recipe "${recipeName}" created successfully!`;
 			generatedIngredients = []; // Clear the list on success
 			calculateRecipeTotals(); // Reset totals display
-		} catch (err: any) {
-			errorMessage = `Error saving recipe: ${err.message}`;
+		} catch (err: unknown) {
+			errorMessage = `Error saving recipe: ${getErrorMessage(err)}`;
 			console.error(err);
 		} finally {
 			isLoadingRecipe = false;
@@ -1133,10 +1144,10 @@ If an ingredient does not match, return an object with its name (use simple, com
 			ingredient.serving_unit = processed.serving_unit;
 			ingredient.nutrition = processed.nutrition;
 			ingredient.errorMsg = undefined;
-		} catch (retryError: any) {
+		} catch (retryError: unknown) {
 			console.error(`Retry failed for "${name}" (index ${index}):`, retryError);
 			ingredient.status = 'error';
-			ingredient.errorMsg = `Retry failed: ${retryError.message}`;
+			ingredient.errorMsg = `Retry failed: ${getErrorMessage(retryError)}`;
 		} finally {
 			generatedIngredients = [...generatedIngredients];
 			calculateRecipeTotals();
@@ -1327,7 +1338,6 @@ If an ingredient does not match, return an object with its name (use simple, com
 			</p>
 			<ul class="space-y-2">
 				{#each generatedIngredients as ingredient, index (index)}
-					{@const isNew = !ingredient.id}
 					{@const statusColor =
 						ingredient.status === 'processing'
 							? 'bg-yellow-50 border-yellow-200'
@@ -1496,25 +1506,31 @@ If an ingredient does not match, return an object with its name (use simple, com
 						class="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded border border-gray-300 bg-white shadow-lg"
 					>
 						{#each manualAddSearchResults as result (result.item.id)}
-							<li
-								class="cursor-pointer px-3 py-2 text-sm hover:bg-gray-100"
-								on:mousedown={() => addExistingIngredient(result.item)}
-							>
-								{result.item.name}
-								<span class="ml-1 text-xs text-gray-500">
-									({result.item.serving_qty || '?'}
-									{result.item.serving_unit || 'unit'})
-								</span>
+							<li>
+								<button
+									type="button"
+									class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100"
+									on:mousedown|preventDefault={() => addExistingIngredient(result.item)}
+								>
+									{result.item.name}
+									<span class="ml-1 text-xs text-gray-500">
+										({result.item.serving_qty || '?'}
+										{result.item.serving_unit || 'unit'})
+									</span>
+								</button>
 							</li>
 						{/each}
 						{#if manualAddSearchTerm.trim() && !manualAddSearchResults.some((r) => r.item.name.toLowerCase() === manualAddSearchTerm
 										.trim()
 										.toLowerCase())}
-							<li
-								class="cursor-pointer px-3 py-2 text-sm text-blue-600 italic hover:bg-blue-100"
-								on:mousedown={() => addNewIngredient(manualAddSearchTerm)}
-							>
-								Add "{manualAddSearchTerm.trim()}" as a new item (default 100g)
+							<li>
+								<button
+									type="button"
+									class="w-full px-3 py-2 text-left text-sm text-blue-600 italic hover:bg-blue-100"
+									on:mousedown|preventDefault={() => addNewIngredient(manualAddSearchTerm)}
+								>
+									Add "{manualAddSearchTerm.trim()}" as a new item (default 100g)
+								</button>
 							</li>
 						{/if}
 						{#if manualAddSearchResults.length === 0 && !manualAddSearchTerm.trim()}

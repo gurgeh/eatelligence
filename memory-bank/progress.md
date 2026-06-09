@@ -53,19 +53,19 @@
 - [x] Change calorie calculation to new carb field definition: carbs excluding fibers.
 - [x] Show calculated kcal in add new item and recipe creation
 - [x] Authentication (Supabase) and user-specific data:
-    - Enabled Google Auth provider in Supabase.
-    - Added `user_id` columns (defaulting to `auth.uid()`, `NOT NULL`) to `food_items`, `food_log`, and `nutrition_targets` tables.
-    - Implemented Row Level Security (RLS) policies for these tables to ensure users can only access/modify their own data.
-    - Created frontend components for login (`/login`), profile (`/profile`), and updated main layout (`+layout.svelte`) for route protection and auth UI.
-    - Implemented `authStore.ts` for Svelte frontend state management.
-    - Updated `types.ts` to include `user_id` in relevant interfaces.
+  - Enabled Google Auth provider in Supabase.
+  - Added `user_id` columns (defaulting to `auth.uid()`, `NOT NULL`) to `food_items`, `food_log`, and `nutrition_targets` tables.
+  - Implemented Row Level Security (RLS) policies for these tables to ensure users can only access/modify their own data.
+  - Created frontend components for login (`/login`), profile (`/profile`), and updated main layout (`+layout.svelte`) for route protection and auth UI.
+  - Implemented `authStore.ts` for Svelte frontend state management.
+  - Updated `types.ts` to include `user_id` in relevant interfaces.
 - [x] Clear DB (Test data in `food_items`, `food_log`, `nutrition_targets` cleared after RLS setup)
 - [x] Menu row on mobile is too wide. Maybe icons? Logout only in profile? (Used Lucid icons, responsive display, removed main logout)
 - [x] Host on eatelligence.fendrich.se (GitHub Pages)
 - [x] Add npm script "deploy" for GitHub Pages deployment (includes --dotfiles)
 - [x] Is the PWA manifest correct? (Added `display: standalone`, `start_url`, `scope`, `background_color` to manifest in `vite.config.ts`. Added iOS specific tags and `mobile-web-app-capable` meta tag to `app.html`.)
 - [ ] Setting new LLM API key. Can normal people get the key somewhere?
-- [ ] Prettier interface. Maybe logo? Ask o3, given screenshots.
+- [ ] Prettier interface. Maybe logo?
 - [x] Mean for last 7 days
 - [ ] Non-breaking space for ( 100 g ) in add new item
 - [ ] Construct some sort of tutorial (in Readme or in app)
@@ -73,11 +73,13 @@
 - [ ] Add a license
 
 From my testing:
+
 - [ ] "1recipe serving" too long
 - [ ] Probably other ratios in daily/weekly display
 
 Ideas:
+
 - [ ] For performance reasons, a local Svelte store may be used to store food_items.
 - [ ] Add optional photo input with name for recipes
-- [ ] Read through code, including TODOs
-- [X] ~~Maybe ask LLM for cleanup~~
+- [x] ~~Read through code, including TODOs~~
+- [x] ~~Maybe ask LLM for cleanup~~

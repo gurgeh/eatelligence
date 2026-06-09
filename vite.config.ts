@@ -7,7 +7,8 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		sveltekit(),
-		SvelteKitPWA({ // Changed to SvelteKitPWA
+		SvelteKitPWA({
+			// Changed to SvelteKitPWA
 			// registerType: 'autoUpdate', // Default is 'prompt' for SvelteKitPWA, let's see
 			includeAssets: ['favicon.png'], // Include your static assets here
 			manifest: {

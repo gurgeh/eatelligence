@@ -7,16 +7,16 @@ Hosted at `eatelligence.fendrich.se` (GitHub Pages). Source: `gurgeh/eatelligenc
 
 ## Tech Stack
 
-| Layer | Choice |
-|---|---|
-| Frontend | SvelteKit 2 + Svelte 5 + TypeScript |
-| Styling | Tailwind CSS 4 (utility-first, no DaisyUI) |
-| Backend / DB | Supabase (Postgres + Auth + RLS) |
-| AI | Google Gemini (`@google/genai`, direct frontend calls) |
-| Icons | `lucide-svelte` |
-| Build | `adapter-static` → static SPA |
-| Hosting | GitHub Pages via `gh-pages` CLI |
-| PWA | `@vite-pwa/sveltekit` (manifest + service worker) |
+| Layer        | Choice                                                 |
+| ------------ | ------------------------------------------------------ |
+| Frontend     | SvelteKit 2 + Svelte 5 + TypeScript                    |
+| Styling      | Tailwind CSS 4 (utility-first, no DaisyUI)             |
+| Backend / DB | Supabase (Postgres + Auth + RLS)                       |
+| AI           | Google Gemini (`@google/genai`, direct frontend calls) |
+| Icons        | `lucide-svelte`                                        |
+| Build        | `adapter-static` → static SPA                          |
+| Hosting      | GitHub Pages via `gh-pages` CLI                        |
+| PWA          | `@vite-pwa/sveltekit` (manifest + service worker)      |
 
 ---
 
@@ -73,6 +73,7 @@ All tables have `user_id UUID DEFAULT auth.uid() NOT NULL` and RLS policy
 `FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id)`.
 
 ### `food_items`
+
 `id, user_id, name, serving_qty, serving_unit, protein, fat, carbs, fibers, sugar,
 mufa, pufa, sfa, gl, omega3, omega6, comment, created_at`
 
@@ -81,12 +82,14 @@ mufa, pufa, sfa, gl, omega3, omega6, comment, created_at`
 - `serving_unit` must be one of: `g | dl | pcs | portion`.
 
 ### `food_log`
+
 `id, user_id, food_item_id (FK → food_items.id), logged_at, multiplier, created_at`
 
 - `multiplier` scales the food item's per-serving nutrition.
 - Queries join `food_items` for nutrient data.
 
 ### `nutrition_targets`
+
 `id, user_id, nutrient_1, nutrient_2 (nullable), min_value, max_value`
 UNIQUE(`nutrient_1`, `nutrient_2`).
 

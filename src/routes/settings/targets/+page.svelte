@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabaseClient';
 	import type { NutritionTarget } from '$lib/types';
-	import { relativeTargetMappings, generateTargetLabel } from '$lib/utils';
+	import { relativeTargetMappings, generateTargetLabel, getErrorMessage } from '$lib/utils';
 
 	let targets: NutritionTarget[] = [];
 	let loading = true;
@@ -20,10 +20,19 @@
 
 	// --- Data Definitions ---
 	const absoluteNutrientOptions = [
-		'calories', 'protein', 'fat', 'carbs', 'fibers', 'sugar',
-		'mufa', 'pufa', 'sfa', 'omega3', 'omega6', 'gl'
+		'calories',
+		'protein',
+		'fat',
+		'carbs',
+		'fibers',
+		'sugar',
+		'mufa',
+		'pufa',
+		'sfa',
+		'omega3',
+		'omega6',
+		'gl'
 	];
-
 
 	// --- Load Existing Targets ---
 	onMount(async () => {
@@ -42,8 +51,8 @@
 
 			if (fetchError) throw fetchError;
 			targets = data || [];
-		} catch (err: any) {
-			error = `Failed to load targets: ${err.message}`;
+		} catch (err: unknown) {
+			error = `Failed to load targets: ${getErrorMessage(err)}`;
 			console.error(err);
 		} finally {
 			loading = false;
@@ -55,28 +64,29 @@
 		if (!absoluteNutrient) return;
 		error = null;
 		try {
-			const { error: insertError } = await supabase
-				.from('nutrition_targets')
-				.insert({
-					nutrient_1: absoluteNutrient,
-					nutrient_2: null,
-					min_value: absoluteMin,
-					max_value: absoluteMax
-				});
+			const { error: insertError } = await supabase.from('nutrition_targets').insert({
+				nutrient_1: absoluteNutrient,
+				nutrient_2: null,
+				min_value: absoluteMin,
+				max_value: absoluteMax
+			});
 			if (insertError) {
-                // Handle potential unique constraint violation gracefully
-                if (insertError.code === '23505') { // unique_violation
-                    throw new Error(`A target for "${generateTargetLabel(absoluteNutrient, null)}" already exists.`);
-                }
-                throw insertError;
-            }
+				// Handle potential unique constraint violation gracefully
+				if (insertError.code === '23505') {
+					// unique_violation
+					throw new Error(
+						`A target for "${generateTargetLabel(absoluteNutrient, null)}" already exists.`
+					);
+				}
+				throw insertError;
+			}
 			// Reset form and refetch
 			absoluteNutrient = 'calories';
 			absoluteMin = null;
 			absoluteMax = null;
 			await fetchTargets();
-		} catch (err: any) {
-			error = `Failed to add absolute target: ${err.message}`;
+		} catch (err: unknown) {
+			error = `Failed to add absolute target: ${getErrorMessage(err)}`;
 			console.error(err);
 		}
 	}
@@ -86,33 +96,32 @@
 		error = null;
 		const mapping = relativeTargetMappings[relativeTargetType];
 		if (!mapping) {
-			error = "Invalid relative target type selected.";
+			error = 'Invalid relative target type selected.';
 			return;
 		}
 
 		try {
-			const { error: insertError } = await supabase
-				.from('nutrition_targets')
-				.insert({
-					nutrient_1: mapping.n1,
-					nutrient_2: mapping.n2,
-					min_value: relativeMin,
-					max_value: relativeMax
-				});
+			const { error: insertError } = await supabase.from('nutrition_targets').insert({
+				nutrient_1: mapping.n1,
+				nutrient_2: mapping.n2,
+				min_value: relativeMin,
+				max_value: relativeMax
+			});
 
 			if (insertError) {
-                 if (insertError.code === '23505') { // unique_violation
-                    throw new Error(`A target for "${mapping.label}" already exists.`);
-                }
+				if (insertError.code === '23505') {
+					// unique_violation
+					throw new Error(`A target for "${mapping.label}" already exists.`);
+				}
 				throw insertError;
-            }
+			}
 			// Reset form and refetch
 			relativeTargetType = 'protein_percent_calories';
 			relativeMin = null;
 			relativeMax = null;
 			await fetchTargets();
-		} catch (err: any) {
-			error = `Failed to add relative target: ${err.message}`;
+		} catch (err: unknown) {
+			error = `Failed to add relative target: ${getErrorMessage(err)}`;
 			console.error(err);
 		}
 	}
@@ -128,118 +137,177 @@
 				.match({ id: id });
 			if (deleteError) throw deleteError;
 			await fetchTargets(); // Refresh the list
-		} catch (err: any) {
-			error = `Failed to delete target: ${err.message}`;
+		} catch (err: unknown) {
+			error = `Failed to delete target: ${getErrorMessage(err)}`;
 			console.error(err);
 		}
 	}
 
-    // --- Update Target Logic (Inline Editing) ---
-    async function saveTargetUpdate(target: NutritionTarget, field: 'min_value' | 'max_value', value: number | null) {
-        // Basic validation: ensure value is a number or null
-        const updateValue = (value === null || isNaN(Number(value))) ? null : Number(value);
+	// --- Update Target Logic (Inline Editing) ---
+	async function saveTargetUpdate(
+		target: NutritionTarget,
+		field: 'min_value' | 'max_value',
+		value: number | null
+	) {
+		// Basic validation: ensure value is a number or null
+		const updateValue = value === null || isNaN(Number(value)) ? null : Number(value);
 
-        // Prevent saving if nothing changed (or became invalid)
-        if (target[field] === updateValue) return;
+		// Prevent saving if nothing changed (or became invalid)
+		if (target[field] === updateValue) return;
 
-        error = null;
-        try {
-            const { error: updateError } = await supabase
-                .from('nutrition_targets')
-                .update({ [field]: updateValue })
-                .match({ id: target.id });
+		error = null;
+		try {
+			const { error: updateError } = await supabase
+				.from('nutrition_targets')
+				.update({ [field]: updateValue })
+				.match({ id: target.id });
 
-            if (updateError) throw updateError;
+			if (updateError) throw updateError;
 
-            // Update local state immediately for responsiveness
-            const targetIndex = targets.findIndex(t => t.id === target.id);
-            if (targetIndex !== -1) {
-                targets[targetIndex] = { ...targets[targetIndex], [field]: updateValue };
-                targets = [...targets]; // Trigger reactivity
-            } else {
-                // Fallback if local state is somehow out of sync
-                await fetchTargets();
-            }
-
-        } catch (err: any) {
-            error = `Failed to update target: ${err.message}`;
-            console.error(err);
-            // Optionally revert local state or refetch on error
-            await fetchTargets();
-        }
-    }
-
-
-
+			// Update local state immediately for responsiveness
+			const targetIndex = targets.findIndex((t) => t.id === target.id);
+			if (targetIndex !== -1) {
+				targets[targetIndex] = { ...targets[targetIndex], [field]: updateValue };
+				targets = [...targets]; // Trigger reactivity
+			} else {
+				// Fallback if local state is somehow out of sync
+				await fetchTargets();
+			}
+		} catch (err: unknown) {
+			error = `Failed to update target: ${getErrorMessage(err)}`;
+			console.error(err);
+			// Optionally revert local state or refetch on error
+			await fetchTargets();
+		}
+	}
 </script>
 
 <svelte:head>
 	<title>Nutrition Targets - Eatelligence</title>
 </svelte:head>
 
-<div class="container mx-auto p-4 max-w-4xl">
-	<h1 class="text-2xl font-bold mb-6">Manage Nutrition Targets</h1>
+<div class="container mx-auto max-w-4xl p-4">
+	<h1 class="mb-6 text-2xl font-bold">Manage Nutrition Targets</h1>
 
 	{#if error}
-		<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+		<div
+			class="relative mb-4 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
+			role="alert"
+		>
 			<strong class="font-bold">Error: </strong>
 			<span class="block sm:inline">{error}</span>
 		</div>
 	{/if}
 
 	<!-- Add New Targets Section -->
-	<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+	<div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
 		<!-- Add Absolute Target -->
-		<div class="border p-4 rounded shadow">
-			<h2 class="text-lg font-semibold mb-3">Add Absolute Target</h2>
+		<div class="rounded border p-4 shadow">
+			<h2 class="mb-3 text-lg font-semibold">Add Absolute Target</h2>
 			<form on:submit|preventDefault={addAbsoluteTarget}>
 				<div class="mb-3">
-					<label for="absoluteNutrient" class="block text-sm font-medium text-gray-700 mb-1">Nutrient</label>
-					<select id="absoluteNutrient" bind:value={absoluteNutrient} class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-						{#each absoluteNutrientOptions as nutrient}
-							<option value={nutrient}>{nutrient.charAt(0).toUpperCase() + nutrient.slice(1)}</option>
+					<label for="absoluteNutrient" class="mb-1 block text-sm font-medium text-gray-700"
+						>Nutrient</label
+					>
+					<select
+						id="absoluteNutrient"
+						bind:value={absoluteNutrient}
+						class="focus:ring-opacity-50 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200"
+					>
+						{#each absoluteNutrientOptions as nutrient (nutrient)}
+							<option value={nutrient}
+								>{nutrient.charAt(0).toUpperCase() + nutrient.slice(1)}</option
+							>
 						{/each}
 					</select>
 				</div>
-				<div class="grid grid-cols-2 gap-4 mb-3">
+				<div class="mb-3 grid grid-cols-2 gap-4">
 					<div>
-						<label for="absoluteMin" class="block text-sm font-medium text-gray-700 mb-1">Min Value</label>
-						<input type="number" id="absoluteMin" step="any" bind:value={absoluteMin} placeholder="Optional" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+						<label for="absoluteMin" class="mb-1 block text-sm font-medium text-gray-700"
+							>Min Value</label
+						>
+						<input
+							type="number"
+							id="absoluteMin"
+							step="any"
+							bind:value={absoluteMin}
+							placeholder="Optional"
+							class="focus:ring-opacity-50 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200"
+						/>
 					</div>
 					<div>
-						<label for="absoluteMax" class="block text-sm font-medium text-gray-700 mb-1">Max Value</label>
-						<input type="number" id="absoluteMax" step="any" bind:value={absoluteMax} placeholder="Optional" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+						<label for="absoluteMax" class="mb-1 block text-sm font-medium text-gray-700"
+							>Max Value</label
+						>
+						<input
+							type="number"
+							id="absoluteMax"
+							step="any"
+							bind:value={absoluteMax}
+							placeholder="Optional"
+							class="focus:ring-opacity-50 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200"
+						/>
 					</div>
 				</div>
-				<button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+				<button
+					type="submit"
+					class="w-full rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-600"
+				>
 					Add Absolute Target
 				</button>
 			</form>
 		</div>
 
 		<!-- Add Relative Target -->
-		<div class="border p-4 rounded shadow">
-			<h2 class="text-lg font-semibold mb-3">Add Relative Target</h2>
+		<div class="rounded border p-4 shadow">
+			<h2 class="mb-3 text-lg font-semibold">Add Relative Target</h2>
 			<form on:submit|preventDefault={addRelativeTarget}>
 				<div class="mb-3">
-					<label for="relativeTargetType" class="block text-sm font-medium text-gray-700 mb-1">Target Type</label>
-					<select id="relativeTargetType" bind:value={relativeTargetType} class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-						{#each Object.entries(relativeTargetMappings) as [key, mapping]}
+					<label for="relativeTargetType" class="mb-1 block text-sm font-medium text-gray-700"
+						>Target Type</label
+					>
+					<select
+						id="relativeTargetType"
+						bind:value={relativeTargetType}
+						class="focus:ring-opacity-50 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200"
+					>
+						{#each Object.entries(relativeTargetMappings) as [key, mapping] (key)}
 							<option value={key}>{mapping.label}</option>
 						{/each}
 					</select>
 				</div>
-				<div class="grid grid-cols-2 gap-4 mb-3">
+				<div class="mb-3 grid grid-cols-2 gap-4">
 					<div>
-						<label for="relativeMin" class="block text-sm font-medium text-gray-700 mb-1">Min %</label>
-						<input type="number" id="relativeMin" step="any" bind:value={relativeMin} placeholder="Optional" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+						<label for="relativeMin" class="mb-1 block text-sm font-medium text-gray-700"
+							>Min %</label
+						>
+						<input
+							type="number"
+							id="relativeMin"
+							step="any"
+							bind:value={relativeMin}
+							placeholder="Optional"
+							class="focus:ring-opacity-50 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200"
+						/>
 					</div>
 					<div>
-						<label for="relativeMax" class="block text-sm font-medium text-gray-700 mb-1">Max %</label>
-						<input type="number" id="relativeMax" step="any" bind:value={relativeMax} placeholder="Optional" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+						<label for="relativeMax" class="mb-1 block text-sm font-medium text-gray-700"
+							>Max %</label
+						>
+						<input
+							type="number"
+							id="relativeMax"
+							step="any"
+							bind:value={relativeMax}
+							placeholder="Optional"
+							class="focus:ring-opacity-50 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200"
+						/>
 					</div>
 				</div>
-				<button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">
+				<button
+					type="submit"
+					class="w-full rounded bg-green-500 px-4 py-2 font-bold text-white hover:bg-green-600"
+				>
 					Add Relative Target
 				</button>
 			</form>
@@ -248,7 +316,7 @@
 
 	<!-- Existing Targets Section -->
 	<div>
-		<h2 class="text-xl font-semibold mb-4">Current Targets</h2>
+		<h2 class="mb-4 text-xl font-semibold">Current Targets</h2>
 		{#if loading}
 			<p>Loading targets...</p>
 		{:else if targets.length === 0}
@@ -258,42 +326,67 @@
 				<table class="min-w-full divide-y divide-gray-200">
 					<thead class="bg-gray-50">
 						<tr>
-							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
-							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min Value</th>
-							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max Value</th>
-							<th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+							<th
+								scope="col"
+								class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>Target</th
+							>
+							<th
+								scope="col"
+								class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>Min Value</th
+							>
+							<th
+								scope="col"
+								class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>Max Value</th
+							>
+							<th
+								scope="col"
+								class="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>Actions</th
+							>
 						</tr>
 					</thead>
-					<tbody class="bg-white divide-y divide-gray-200">
+					<tbody class="divide-y divide-gray-200 bg-white">
 						{#each targets as target (target.id)}
 							<tr>
-								<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+								<td class="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">
 									{generateTargetLabel(target.nutrient_1, target.nutrient_2)}
 								</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        value={target.min_value}
-                                        on:blur={(e) => saveTargetUpdate(target, 'min_value', e.currentTarget.valueAsNumber)}
-                                        on:keydown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                        placeholder="None"
-                                        class="p-1 w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                                    >
+								<td class="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
+									<input
+										type="number"
+										step="any"
+										value={target.min_value}
+										on:blur={(e) =>
+											saveTargetUpdate(target, 'min_value', e.currentTarget.valueAsNumber)}
+										on:keydown={(e) => {
+											if (e.key === 'Enter') e.currentTarget.blur();
+										}}
+										placeholder="None"
+										class="focus:ring-opacity-50 w-24 rounded-md border-gray-300 p-1 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200"
+									/>
 								</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        value={target.max_value}
-                                        on:blur={(e) => saveTargetUpdate(target, 'max_value', e.currentTarget.valueAsNumber)}
-                                        on:keydown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                        placeholder="None"
-                                        class="p-1 w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                                    >
+								<td class="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
+									<input
+										type="number"
+										step="any"
+										value={target.max_value}
+										on:blur={(e) =>
+											saveTargetUpdate(target, 'max_value', e.currentTarget.valueAsNumber)}
+										on:keydown={(e) => {
+											if (e.key === 'Enter') e.currentTarget.blur();
+										}}
+										placeholder="None"
+										class="focus:ring-opacity-50 w-24 rounded-md border-gray-300 p-1 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200"
+									/>
 								</td>
-								<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-									<button on:click={() => deleteTarget(target.id)} class="text-red-600 hover:text-red-900">
+								<td class="px-6 py-4 text-right text-sm font-medium whitespace-nowrap">
+									<button
+										on:click={() => deleteTarget(target.id)}
+										class="text-red-600 hover:text-red-900"
+									>
 										Delete
 									</button>
 								</td>
