@@ -127,6 +127,43 @@ Formula (TEF-adjusted): `kcal = (protein × 3) + (carbs × 3.7) + (fibers × 2) 
 
 ---
 
+## Testing & Browser Login (Agent Account)
+
+There is a dedicated test account — **`claude-test@eatelligence.test`** — for agent/automated
+browser testing. Its credentials live in **`.env.local`** (`TEST_USER_EMAIL` /
+`TEST_USER_PASSWORD`); that file is gitignored, so ask the project owner if it's missing.
+
+The public UI only offers Google OAuth, but this account is a Supabase **email/password** user,
+so you log it in programmatically — not via the Google button. supabase-js persists the session
+in `localStorage` under `sb-<project-ref>-auth-token`, where `<project-ref>` is the subdomain of
+`PUBLIC_SUPABASE_URL`. `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` are publishable
+values (already shipped in the client bundle); the password is the only real secret.
+
+To sign in from the browser, open the running app (dev or prod) and paste this into the devtools
+console, filling the four values from `.env` / `.env.local`:
+
+```js
+const SUPABASE_URL = ''; // PUBLIC_SUPABASE_URL      (.env)
+const ANON_KEY = ''; //     PUBLIC_SUPABASE_ANON_KEY (.env)
+const EMAIL = ''; //        TEST_USER_EMAIL          (.env.local)
+const PASSWORD = ''; //     TEST_USER_PASSWORD       (.env.local)
+const ref = new URL(SUPABASE_URL).hostname.split('.')[0];
+const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+	method: 'POST',
+	headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
+	body: JSON.stringify({ email: EMAIL, password: PASSWORD })
+});
+if (!res.ok) throw new Error(`login failed: ${res.status}`);
+localStorage.setItem(`sb-${ref}-auth-token`, JSON.stringify(await res.json()));
+location.reload();
+```
+
+The stored value is exactly the token endpoint's JSON response (verified against supabase-js
+2.49.4). For Playwright (`npm run test:e2e`), do the same password sign-in with a supabase-js
+client in a setup step and persist it via `context.storageState` so specs start authenticated.
+
+---
+
 ## Gemini AI Integration
 
 - Library: `@google/genai`, called directly from the frontend (no backend proxy).

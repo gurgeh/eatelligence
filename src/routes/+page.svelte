@@ -279,7 +279,7 @@
 
 			// Exit editing mode and refresh data
 			cancelEdit();
-			await fetchRecentLogs();
+			await fetchRecentLogs('refresh');
 		} catch (err: unknown) {
 			console.error('Error updating log:', err);
 			logError = `Failed to update log: ${getErrorMessage(err)}`;
@@ -371,20 +371,24 @@
 		}
 	}
 
-	async function fetchRecentLogs(loadMore = false) {
-		if (loadMore) {
+	async function fetchRecentLogs(mode: 'reset' | 'more' | 'refresh' = 'reset') {
+		if (mode === 'more') {
 			loadingMore = true;
 			currentPage++; // Increment page for the next fetch
-		} else {
+		} else if (mode === 'reset') {
 			loadingLogs = true;
 			currentPage = 0; // Reset to first page
 			recentLogs = []; // Clear existing logs for a fresh load
 			displayItems = []; // Clear display items too
 		}
+		// 'refresh' keeps the currently loaded window (currentPage) so that logging,
+		// editing or deleting an entry doesn't collapse the list back to page 0.
 		logError = null;
 
-		const from = currentPage * logsPerPage;
-		const to = from + logsPerPage - 1;
+		// 'more' fetches just the next page; 'reset'/'refresh' refetch the whole
+		// loaded window (pages 0..currentPage) in a single query.
+		const from = mode === 'more' ? currentPage * logsPerPage : 0;
+		const to = mode === 'more' ? from + logsPerPage - 1 : (currentPage + 1) * logsPerPage - 1;
 
 		try {
 			const { data, error } = await supabase
@@ -452,19 +456,18 @@
 					})
 				: [];
 
-			// Append or replace logs based on loadMore flag
-			if (loadMore) {
+			// Append (load more) or replace the whole loaded window (reset/refresh).
+			if (mode === 'more') {
 				recentLogs = [...recentLogs, ...newLogs];
+				canLoadMore = newLogs.length === logsPerPage;
 			} else {
 				recentLogs = newLogs;
+				canLoadMore = newLogs.length === (currentPage + 1) * logsPerPage;
 			}
-
-			// Determine if more logs can be loaded
-			canLoadMore = newLogs.length === logsPerPage;
 		} catch (err: unknown) {
 			console.error('Error fetching recent logs:', err);
 			logError = getErrorMessage(err) || 'Failed to fetch recent logs.';
-			if (loadMore) currentPage--; // Decrement page if load more failed
+			if (mode === 'more') currentPage--; // Decrement page if load more failed
 		} finally {
 			loadingLogs = false;
 			loadingMore = false;
@@ -725,7 +728,7 @@
 			// Clear search and refresh logs on success
 			searchTerm = '';
 			searchResults = [];
-			await fetchRecentLogs(); // Refresh the recent logs list
+			await fetchRecentLogs('refresh'); // Refresh, preserving the loaded window
 		} catch (err: unknown) {
 			console.error('Error logging item:', err);
 			// Optionally show an error message to the user
@@ -756,7 +759,7 @@
 			if (error) throw error;
 
 			// Refresh logs on success
-			await fetchRecentLogs();
+			await fetchRecentLogs('refresh');
 		} catch (err: unknown) {
 			console.error('Error copying log:', err);
 			logError = `Failed to copy log: ${getErrorMessage(err)}`;
@@ -777,7 +780,7 @@
 			if (error) throw error;
 
 			// Refresh the list after successful deletion
-			await fetchRecentLogs();
+			await fetchRecentLogs('refresh');
 		} catch (err: unknown) {
 			console.error('Error deleting log:', err);
 			logError = `Failed to delete log: ${getErrorMessage(err)}`; // Update error state
@@ -851,7 +854,12 @@
 	<div>
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="text-xl font-semibold">Recent Logs</h2>
-			<a href="/create-recipe" class="btn btn-sm btn-outline btn-primary"> Create Recipe </a>
+			<a
+				href="/create-recipe"
+				class="rounded-md border border-indigo-600 px-3 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
+			>
+				Create Recipe
+			</a>
 		</div>
 		{#if loadingLogs}
 			<p>Loading recent logs...</p>
@@ -1068,7 +1076,7 @@
 					<button
 						type="button"
 						class="rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
-						on:click={() => fetchRecentLogs(true)}
+						on:click={() => fetchRecentLogs('more')}
 						disabled={loadingMore}
 					>
 						{#if loadingMore}

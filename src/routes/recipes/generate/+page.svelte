@@ -157,6 +157,9 @@
 		if (insertError) throw insertError;
 		if (!insertedData) throw new Error('Failed to insert new food item, no ID returned.');
 
+		// Remember this insert so it can be cleaned up if the recipe is abandoned.
+		sessionInsertedItemIds.add(insertedData.id);
+
 		const { protein, fat, carbs, fibers, sugar, mufa, pufa, sfa, gl, omega3, omega6 } =
 			itemToInsert;
 		return {
@@ -219,6 +222,10 @@
 		nutrition?: NutritionData | null;
 	};
 	let generatedIngredients: GeneratedIngredient[] = [];
+	// Track food_items inserted while building this recipe so they can be cleaned
+	// up if the user cancels, removes an ingredient, or starts a new generation.
+	// They are kept only once the recipe is actually created.
+	let sessionInsertedItemIds = new Set<number>();
 	let isLoadingList = false;
 	let isLoadingRecipe = false; // Used for LLM list gen, processing, and saving
 	let isFetchingExisting = false; // Separate flag for fetching existing item details
@@ -560,6 +567,8 @@
 		isLoadingList = true;
 		errorMessage = '';
 		successMessage = '';
+		// Starting a fresh list abandons any items inserted in the previous attempt.
+		await discardSessionInsertedItems();
 		generatedIngredients = [];
 		calculateRecipeTotals(); // Reset totals display
 		let sentContextImages = false;
@@ -710,10 +719,47 @@ If an ingredient does not match, return an object with its name (use simple, com
 		}
 	}
 
-	function deleteIngredient(index: number) {
+	// Delete any food_items inserted during this recipe-building session and reset
+	// the tracking set. Best-effort: logs on failure rather than blocking the UI.
+	async function discardSessionInsertedItems() {
+		if (sessionInsertedItemIds.size === 0) return;
+		const ids = Array.from(sessionInsertedItemIds);
+		sessionInsertedItemIds = new Set();
+		try {
+			const { error } = await supabase.from('food_items').delete().in('id', ids);
+			if (error) throw error;
+		} catch (err: unknown) {
+			console.error('Failed to clean up session-inserted ingredient items:', err);
+		}
+	}
+
+	// Cancel the whole flow: discard inserted items so the Foods list stays clean.
+	async function cancelRecipe() {
+		await discardSessionInsertedItems();
+		generatedIngredients = [];
+		errorMessage = '';
+		successMessage = '';
+		clearContextImages();
+		calculateRecipeTotals();
+	}
+
+	async function deleteIngredient(index: number) {
+		const removed = generatedIngredients[index];
 		generatedIngredients.splice(index, 1);
 		generatedIngredients = generatedIngredients; // Trigger reactivity
 		calculateRecipeTotals(); // Recalculate totals after deletion
+
+		// If this ingredient was inserted earlier in this session, remove the
+		// now-orphaned food_items row too so the Foods list stays clean.
+		if (removed?.id && sessionInsertedItemIds.has(removed.id)) {
+			sessionInsertedItemIds.delete(removed.id);
+			try {
+				const { error } = await supabase.from('food_items').delete().eq('id', removed.id);
+				if (error) throw error;
+			} catch (err: unknown) {
+				console.error('Failed to remove session-inserted ingredient item:', err);
+			}
+		}
 	}
 
 	// --- Manual Add Functions ---
@@ -1149,6 +1195,9 @@ If an ingredient does not match, return an object with its name (use simple, com
 			if (recipeInsertError) throw recipeInsertError;
 
 			successMessage = `Recipe "${recipeName}" created successfully!`;
+			// Recipe created — the inserted ingredient items are now legitimately part
+			// of the user's Foods, so stop tracking them for cleanup.
+			sessionInsertedItemIds = new Set();
 			generatedIngredients = []; // Clear the list on success
 			calculateRecipeTotals(); // Reset totals display
 		} catch (err: unknown) {
@@ -1664,13 +1713,7 @@ If an ingredient does not match, return an object with its name (use simple, com
 				{/if}
 
 				<button
-					on:click={() => {
-						generatedIngredients = [];
-						errorMessage = '';
-						successMessage = '';
-						clearContextImages();
-						calculateRecipeTotals();
-					}}
+					on:click={cancelRecipe}
 					disabled={isLoadingList || isLoadingRecipe}
 					class="rounded bg-gray-300 px-4 py-2 text-black hover:bg-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
 				>
